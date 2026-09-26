@@ -48,15 +48,18 @@ final class AppState: ObservableObject {
 
     func start() {
         CLIToken.ensure()
-        // Control Center controls send one of a few named actions. Anything else is ignored.
+        // Control Center controls send one of a few named actions. Distributed notifications can't prove who sent
+        // them, so this channel only carries harmless, reversible actions (nothing that turns a screen off),
+        // and bursts are ignored so another app can't spam it.
+        var lastControl = Date.distantPast
         DistributedNotificationCenter.default().addObserver(forName: Notification.Name("design.jordancampbell.umbra.control"), object: nil, queue: .main) { [weak self] n in
-            guard let self, let action = n.object as? String else { return }
+            guard let self, let action = n.object as? String, Date().timeIntervalSince(lastControl) > 0.25 else { return }
+            lastControl = Date()
             switch action {
             case "nightMode": NightMode.shared.toggle()
             case "faceLight": self.toggleFaceLight()
             case "brighter": self.stepBrightness(up: true, fine: false, target: .cursor)
             case "dimmer": self.stepBrightness(up: false, fine: false, target: .cursor)
-            case "blackOut": self.perform(.blackOut)
             case "allOn": self.perform(.blackOutRestore)
             default: break
             }

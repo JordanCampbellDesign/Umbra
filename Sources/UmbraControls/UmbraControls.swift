@@ -7,12 +7,12 @@ import WidgetKit
 // posts a named action to the Umbra app, which checks it against a fixed list before acting.
 
 enum ControlAction: String, AppEnum {
-    case nightMode, faceLight, brighter, dimmer, blackOut, allOn
+    case nightMode, faceLight, brighter, dimmer, allOn
 
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "Umbra Action"
     static let caseDisplayRepresentations: [ControlAction: DisplayRepresentation] = [
         .nightMode: "Night Mode", .faceLight: "FaceLight", .brighter: "Brighter", .dimmer: "Dimmer",
-        .blackOut: "BlackOut", .allOn: "All Screens On",
+        .allOn: "All Screens On",
     ]
 }
 
@@ -71,13 +71,6 @@ struct DimmerControl: ControlWidget {
     }
 }
 
-struct BlackOutControl: ControlWidget {
-    var body: some ControlWidgetConfiguration {
-        umbraButton("design.jordancampbell.umbra.blackout", .blackOut, "BlackOut", "power")
-            .description("Turn off the screen under the pointer, or turn it back on.")
-    }
-}
-
 struct AllOnControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
         umbraButton("design.jordancampbell.umbra.allon", .allOn, "All Screens On", "display.2")
@@ -92,7 +85,6 @@ struct UmbraControlsBundle: WidgetBundle {
         FaceLightControl()
         BrighterControl()
         DimmerControl()
-        BlackOutControl()
         AllOnControl()
     }
 }

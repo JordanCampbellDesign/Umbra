@@ -46,7 +46,7 @@ After that, Umbra updates itself. It checks once a day and asks before it instal
 
 **Many ways to control it**
 - Siri: "Turn off my Samsung with Umbra", "Lower the brightness with Umbra", "Turn on Night Mode in Umbra". The same actions appear in the Shortcuts app.
-- Control Center and menu bar controls: Night Mode, FaceLight, Brighter, Dimmer, BlackOut, and All Screens On.
+- Control Center and menu bar controls: Night Mode, FaceLight, Brighter, Dimmer, and All Screens On.
 - Brightness and volume keys, global hotkeys, and presets per app.
 - Scroll over the menu bar icon, or hold ⌃⌥ and scroll anywhere, to change the brightness of the screen under the pointer.
 - A CLI and `umbra://` links.
