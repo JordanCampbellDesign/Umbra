@@ -48,6 +48,19 @@ final class AppState: ObservableObject {
 
     func start() {
         CLIToken.ensure()
+        // Control Center controls send one of a few named actions. Anything else is ignored.
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name("design.jordancampbell.umbra.control"), object: nil, queue: .main) { [weak self] n in
+            guard let self, let action = n.object as? String else { return }
+            switch action {
+            case "nightMode": NightMode.shared.toggle()
+            case "faceLight": self.toggleFaceLight()
+            case "brighter": self.stepBrightness(up: true, fine: false, target: .cursor)
+            case "dimmer": self.stepBrightness(up: false, fine: false, target: .cursor)
+            case "blackOut": self.perform(.blackOut)
+            case "allOn": self.perform(.blackOutRestore)
+            default: break
+            }
+        }
         restoreStaleBlackOuts()
         refreshDisplays()
         CGDisplayRegisterReconfigurationCallback({ _, flags, _ in
