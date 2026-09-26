@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Umbra promo loop</title>
+<!--
+  Umbra promo loop: 1440x1440, 16 s (120 BPM, 8 bars, 32 beats), silent.
+  Everything is a pure function of time inside seek(t). No CSS transitions, no timers, no state between frames.
+  Springs are closed-form step responses. A channel that changes target many times is the sum of one spring
+  per change, extended over the previous cycle, so the loop's last frame flows into its first.
+  Render with scripts/promo/render.mjs.
+-->
+<style>
+  html, body { margin: 0; background: #000; }
+  #stage { position: relative; width: 1440px; height: 1440px; overflow: hidden; }
+  #gl { position: absolute; inset: 0; width: 1440px; height: 1440px; }
+  #world { position: absolute; left: 0; top: 0; width: 1440px; height: 1440px; transform-origin: 0 0; }
+  #screen { position: absolute; inset: 0; pointer-events: none; }
+  .g { position: absolute; left: 0; top: 0; transform-origin: 50% 50%; }
+  .t { font-family: -apple-system, "SF Pro Display", "SF Pro Text", system-ui, sans-serif; color: #1D1D1F; white-space: nowrap; }
+  .num { font-variant-numeric: tabular-nums; }
+  .title { font-weight: 600; letter-spacing: -0.01em; }
+  .label { font-weight: 500; }
+  .body { font-weight: 400; }
+  .sec { color: #6E6E73; }
+  svg { overflow: visible; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="gl" width="1440" height="1440"></canvas>
+  <div id="world"></div>
+  <div id="screen"></div>
+</div>
+<script>
+"use strict";
+const P = 16;              // loop length in seconds
+const BEAT = 0.5;          // 120 BPM
+const b = n => (n - 1) * BEAT;   // start time of beat n (1-based)
+const ACCENT = "#0A84FF", LABEL = "#1D1D1F", SECOND = "#6E6E73";
+
+// ---------------------------------------------------------------- springs
+// Closed-form damped step response, Apple parameters: w = 2*pi/response, zeta = dampingFraction.
+function step(t, resp, damp) {
+  if (t <= 0) return 0;
+  const w = 2 * Math.PI / resp;
+  if (damp >= 1) return 1 - Math.exp(-w * t) * (1 + w * t);
+  const wd = w * Math.sqrt(1 - damp * damp);
+  return 1 - Math.exp(-damp * w * t) * (Math.cos(wd * t) + (damp * w / wd) * Math.sin(wd * t));
+}
+// Spring released from value x0 with velocity v0 toward target.
+function springFrom(x0, v0, target, t, resp, damp) {
+  if (t <= 0) return x0;
+  const w = 2 * Math.PI / resp, A = x0 - target;
+  if (damp >= 1) return target + (A + (v0 + w * A) * t) * Math.exp(-w * t);
+  const wd = w * Math.sqrt(1 - damp * damp), B = (v0 + damp * w * A) / wd;
+  return target + Math.exp(-damp * w * t) * (A * Math.cos(wd * t) + B * Math.sin(wd * t));
+}
+const MORPH = [0.45, 0.86], PRESS = [0.25, 0.72], SNAP = [0.3, 0.9], CAM = [0.6, 1.0];
+const LEAD = [0.28, 0.86], TRAIL = [0.42, 0.86];
+
+// A looping channel: starts at v0, keys are [time, value, resp?, damp?]. The last value must equal v0.
+// value(t) = v0 + sum of deltas * (step(t - ti) + step(t + P - ti) - 1): the second term is the previous cycle.
+function ch(v0, keys, spring = MORPH) {
+  let prev = v0;
+  const steps = keys.map(k => { const d = k[1] - prev; prev = k[1]; return [k[0], d, k[2] ?? spring[0], k[3] ?? spring[1]]; });
+  if (Math.abs(prev - v0) > 1e-6) console.warn("channel does not loop", v0, prev);
+  return t => {
+    let v = v0;
+    for (const [ti, d, r, z] of steps) v += d * (step(t - ti, r, z) + step(t + P - ti, r, z) - 1);
+    return v;
+  };
+}
+const vel = (f, t) => (f(t) - f(t - 1e-3)) / 1e-3;
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, x) => a + (b - a) * x;
+// Rubber-band past a limit: offset = (1 - 1/(x*0.55/d + 1)) * d
+const rubber = (x, d) => x <= 0 ? 0 : (1 - 1 / (x * 0.55 / d + 1)) * d;
+
+// Content swap: exit takes 120 ms (blur 6px, scale 0.96, fade); enter starts 60 ms later on its own spring.
+function swap(t, tin, tout) {
+  const wraps = tin > tout;
+  const inside = wraps ? (t >= tin || t < tout + 0.12) : (t >= tin && t < tout + 0.12);
+  if (!inside) return null;
+  let dtIn = t - tin - 0.06; if (dtIn < -P / 2) dtIn += P;
+  const e = clamp(step(dtIn, MORPH[0], MORPH[1]), 0, 1.03);
+  let dtOut = t - tout; if (wraps && t >= tin) dtOut = -1;
+  const x = clamp(dtOut / 0.12, 0, 1);
+  const op = clamp(Math.min(e, 1) * (1 - x), 0, 1);
+  if (op <= 0.001) return null;
+  return { op, blur: 6 * Math.max(1 - Math.min(e, 1), x), scale: 0.96 + 0.04 * Math.min(e, 1) - 0.04 * x };
+}
+function applySwap(el, s, extra = "") {
+  if (!s) { el.style.display = "none"; return false; }
+  el.style.display = "block";
+  el.style.opacity = s.op.toFixed(4);
+  el.style.filter = s.blur > 0.05 ? `blur(${s.blur.toFixed(2)}px)` : "none";
+  el.style.transform = `${extra} scale(${s.scale.toFixed(4)})`;
+  return true;
+}
+
+// ---------------------------------------------------------------- icons (one SF Symbols-like set, medium weight)
+const ICON = {
+  sun: `<circle cx="12" cy="12" r="4.4" fill="none" stroke="currentColor" stroke-width="2"/>` +
+    [...Array(8)].map((_, i) => { const a = i * Math.PI / 4, c = Math.cos(a), s = Math.sin(a);
+      return `<line x1="${12 + c * 7.4}" y1="${12 + s * 7.4}" x2="${12 + c * 9.9}" y2="${12 + s * 9.9}" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`; }).join(""),
+  sunMin: `<circle cx="12" cy="12" r="4.4" fill="none" stroke="currentColor" stroke-width="2"/>` +
+    [...Array(8)].map((_, i) => { const a = i * Math.PI / 4; return `<circle cx="${12 + Math.cos(a) * 8.6}" cy="${12 + Math.sin(a) * 8.6}" r="1.2" fill="currentColor"/>`; }).join(""),
+  moon: `<path d="M19.5 14.6A8 8 0 0 1 9.4 4.5a8 8 0 1 0 10.1 10.1z" fill="currentColor"/>`,
+  power: `<path d="M12 3.2v8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/><path d="M7.1 6.3a7.6 7.6 0 1 0 9.8 0" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/>`,
+};
+const svg = (name, size, color = "currentColor") => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" style="color:${color};display:block">${ICON[name]}</svg>`;
+
+// ---------------------------------------------------------------- DOM helpers (world coordinates)
+const world = document.getElementById("world"), screenLayer = document.getElementById("screen");
+function el(parent, html = "", css = "") {
+  const d = document.createElement("div");
+  d.className = "g"; d.style.cssText = css; d.innerHTML = html;
+  parent.appendChild(d); return d;
+}
+const place = (e, x, y, w, h) => { e.style.left = `${(x - w / 2).toFixed(2)}px`; e.style.top = `${(y - h / 2).toFixed(2)}px`; e.style.width = `${w}px`; e.style.height = `${h}px`; };
+
+// ---------------------------------------------------------------- scene constants (world units)
+const C = 720;
+const CARD = { w: 760, h: 400, hMoon: 462, r: 44, pad: 32 };
+const IN_L = C - CARD.w / 2 + CARD.pad, IN_R = C + CARD.w / 2 - CARD.pad, IN_W = IN_R - IN_L; // 372..1068
+const SEG = ["Manual", "Sync", "Location", "Clock", "Sensor"];
+const SEG_W = IN_W / 5, segX = i => IN_L + SEG_W * (i + 0.5);
+const MOON_L = IN_L + 40;
+const cardTop = h => C - h / 2;
+const TOG = { w: 600, h: 132, r: 66 };
+const trackX = C + TOG.w / 2 - 28 - 64, knobOff = trackX - 26, knobOn = trackX + 26;
+const TILE = { w: 300, h: 230, r: 34, off: 168, gap: 28 };
+const OSD = { w: 600, h: 124, r: 62 };
+const SIRI = { w: 780, h: 120, r: 60 };
+const CAP = { w: 200, h: 96, r: 48 };
+
+// ---------------------------------------------------------------- timeline channels
+// Camera (response 0.6, damping 1.0)
+const camZ = ch(2.2, [[b(4), 1.25], [b(17), 1.6], [b(25), 1.0], [b(29), 1.25], [b(31), 2.2]], CAM);
+
+// Hero glass: the one element that morphs through every state.
+const heroW = ch(CAP.w, [[b(4), CARD.w], [b(17), OSD.w], [b(21), TOG.w], [b(25), TILE.w], [b(29), SIRI.w], [b(31), CAP.w]]);
+const heroH = ch(CAP.h, [[b(4), CARD.h], [b(8) + 0.05, CARD.hMoon], [b(13), CARD.h], [b(17), OSD.h], [b(21), TOG.h], [b(25), TILE.h], [b(29), SIRI.h], [b(31), CAP.h]]);
+const heroR = ch(CAP.r, [[b(4), CARD.r], [b(17), OSD.r], [b(21), TOG.r], [b(25), TILE.r], [b(29), SIRI.r], [b(31), CAP.r]]);
+const heroX = ch(C, [[b(27), 786], [b(28), C]]);
+const heroSwell = ch(0, [[b(3), 0.1, ...PRESS], [b(3) + 0.18, 0, ...PRESS]]);
+const heroRim = ch(0, [[b(2), 0.5, ...SNAP], [b(4), 0, ...SNAP]]);
+
+// Side tiles split out of the hero like droplets, then merge back into the Siri capsule.
+const tileLX = ch(C, [[b(25), C - TILE.w - TILE.gap], [b(27), 458], [b(28), C - TILE.w - TILE.gap], [b(29), C - 150], [b(29) + 0.5, C]]);
+const tileLW = ch(0, [[b(25) - 0.05, TILE.w], [b(29), 120], [b(29) + 0.45, 0]]);
+const tileLH = ch(0, [[b(25) - 0.05, TILE.h], [b(29), 90], [b(29) + 0.45, 0]]);
+const tileRX = ch(C, [[b(25), C + TILE.w + TILE.gap], [b(29), C + 150], [b(29) + 0.5, C]]);
+const tileRW = ch(0, [[b(25) - 0.05, TILE.w], [b(27), TILE.off], [b(28), TILE.w], [b(29), 120], [b(29) + 0.45, 0]]);
+const tileRH = ch(0, [[b(25) - 0.05, TILE.h], [b(29), 90], [b(29) + 0.45, 0]]);
+const tileRSwell = ch(0, [[b(26), 0.08, ...PRESS], [b(26) + 0.16, 0, ...PRESS], [b(28), 0.08, ...PRESS], [b(28) + 0.16, 0, ...PRESS]]);
+const blackOut = ch(0, [[b(27), 1, 0.3, 1], [b(28), 0, 0.3, 1]]);
+
+// Pointer (world coordinates). Snap moves use response 0.3, glides use the morph spring.
+const px = ch(1120, [[0.05, 760, 0.55, 0.9], [b(4), 800], [b(5), 937, ...SNAP],
+  [b(6) + 0.1, 650, 0.5, 0.9], [b(7) + 0.1, 300, 0.5, 0.9],
+  [b(8) + 0.3, MOON_L + 6, ...SNAP], [b(9) + 0.05, IN_R, 0.5, 0.9], [b(10) + 0.25, IN_R + 150, 0.5, 0.9],
+  [b(12) + 0.05, IN_L, ...SNAP], [b(12) + 0.3, 937, 0.3, 0.9],
+  [b(13) + 0.1, segX(1), ...SNAP], [b(14) + 0.3, segX(2), ...SNAP],
+  [b(17), 990], [b(21), knobOff, ...SNAP], [b(22) + 0.45, knobOn + 8, ...LEAD],
+  [b(24) + 0.2, 1000], [b(25), C + TILE.w + TILE.gap + 110, ...SNAP], [b(27) + 0.1, 1048, ...SNAP],
+  [b(29) + 0.2, 1040], [b(30) + 0.5, 1120, 0.6, 0.95]]);
+const py = ch(1090, [[0.05, 735, 0.55, 0.9], [b(4), 800], [b(5), cardTop(CARD.h) + 354, ...SNAP],
+  [b(8) + 0.3, cardTop(CARD.hMoon) + 414, ...SNAP],
+  [b(12) + 0.05, cardTop(CARD.hMoon) + 354, ...SNAP], [b(13), cardTop(CARD.h) + 354, 0.45, 0.86],
+  [b(13) + 0.1, cardTop(CARD.h) + 128, ...SNAP],
+  [b(17), 880], [b(21), C + 4, ...SNAP],
+  [b(24) + 0.2, 880], [b(25), C + TILE.h / 2 - 34, ...SNAP],
+  [b(29) + 0.2, 1000], [b(30) + 0.5, 1090, 0.6, 0.95]]);
+const pointerPress = ch(0, [[b(3), 1, ...PRESS], [b(3) + 0.15, 0, ...PRESS],
+  [b(6), 1, ...PRESS], [b(8) + 0.25, 0, ...PRESS], [b(9), 1, ...PRESS], [b(12), 0, ...PRESS],
+  [b(12) + 0.25, 1, ...PRESS], [b(13) + 0.05, 0, ...PRESS],
+  [b(14), 1, ...PRESS], [b(14) + 0.15, 0, ...PRESS], [b(16), 1, ...PRESS], [b(16) + 0.15, 0, ...PRESS],
+  [b(22), 1, ...PRESS], [b(24), 0, ...PRESS],
+  [b(26), 1, ...PRESS], [b(26) + 0.15, 0, ...PRESS], [b(28), 1, ...PRESS], [b(28) + 0.15, 0, ...PRESS]]);
+
+// Brightness of the C27F390 (and the wallpaper exposure): direct manipulation while held, springs after.
+const B0 = 81.25;
+const T_GRAB1 = b(6), T_REL1 = b(8) + 0.25, T_GRAB2 = b(12) + 0.25, T_REL2 = b(13) + 0.05;
+const heldB = t => clamp((px(t) - IN_L) / IN_W * 100, 0, 100);
+const laterB = ch(0, [[b(16), -18.75], [b(18), -12.5], [b(19), -6.25], [b(20), 0]]);
+function brightness(t) {
+  if (t < T_GRAB1) return B0;
+  if (t < T_REL1) return heldB(t);
+  if (t < T_GRAB2) return 0;
+  if (t < T_REL2) return heldB(t);
+  const x0 = heldB(T_REL2), v0 = vel(heldB, T_REL2);
+  return springFrom(x0, v0, B0, t - T_REL2, ...PRESS) + laterB(t);
+}
+const builtIn = t => B0 + laterB(t);
+// Dim below 0%: held from beat 9, rubber-bands past max, springs back on release, resets when brightness rises.
+const T_GRAB3 = b(9), T_REL3 = b(12), T_RESET = b(12) + 0.4;
+const MOON_W = IN_R - MOON_L;
+const heldZ = t => clamp((px(t) - MOON_L) / MOON_W * 100, 0, 100);
+const heldStretch = t => rubber(px(t) - IN_R, 120);
+function subzero(t) {
+  if (t < T_GRAB3) return 0;
+  if (t < T_REL3) return heldZ(t);
+  if (t < T_RESET) return 100;
+  return 100 - 100 * step(t - T_RESET, ...MORPH);
+}
+function moonStretch(t) {
+  if (t < T_GRAB3) return 0;
+  if (t < T_REL3) return heldStretch(t);
+  return springFrom(heldStretch(T_REL3), vel(heldStretch, T_REL3), 0, t - T_REL3, ...MORPH);
+}
+const thickB = ch(0, [[T_GRAB1, 1, ...PRESS], [T_REL1, 0, ...PRESS], [T_GRAB2, 1, ...PRESS], [T_REL2, 0, ...PRESS]]);
+const thickZ = ch(0, [[T_GRAB3, 1, ...PRESS], [T_REL3, 0, ...PRESS]]);
+
+// Mode picker: the selection pill's edges move on separate springs, leading edge first.
+const pillL = ch(IN_L + 4, [[b(14), IN_L + SEG_W + 4, ...TRAIL], [b(16), IN_L + 2 * SEG_W + 4, ...TRAIL], [b(19), IN_L + 4, ...TRAIL]]);
+const pillR = ch(IN_L + SEG_W - 4, [[b(14), IN_L + 2 * SEG_W - 4, ...LEAD], [b(16), IN_L + 3 * SEG_W - 4, ...LEAD], [b(19), IN_L + SEG_W - 4, ...LEAD]]);
+const selSeg = t => (t >= b(16) && t < b(19)) ? 2 : (t >= b(14) && t < b(19)) ? 1 : 0;
+
+// Night Mode toggle: knob edges travel on separate springs; during the hold the knob is a clear glass lens.
+const knobLead = ch(knobOff, [[b(23), knobOn, ...LEAD], [b(25) + 0.2, knobOff, ...LEAD]]);
+const knobTrail = ch(knobOff, [[b(23), knobOn, ...TRAIL], [b(25) + 0.2, knobOff, ...TRAIL]]);
+const lensGrow = ch(0, [[b(22), 1, ...PRESS], [b(24), 0, ...PRESS]]);
+const nightOn = ch(0, [[b(23), 1, 0.7, 1], [b(30), 0, 0.7, 1]]);
+const moonMorph = ch(0, [[b(24), 1], [b(25) + 0.2, 0]]);
+const keyPress = ch(0, [[b(18), 1, ...PRESS], [b(18) + 0.12, 0, ...PRESS], [b(19), 1, ...PRESS], [b(19) + 0.12, 0, ...PRESS], [b(20), 1, ...PRESS], [b(20) + 0.12, 0, ...PRESS]]);
+const checkDraw = ch(0, [[b(30), 1], [b(31) + 0.3, 0]]);
+
+// Wallpaper exposure: brightness dims it, below-0% sinks it further, Night Mode warms it.
+function exposure(t) {
+  const br = brightness(t), z = subzero(t), n = nightOn(t);
+  const lum = (0.42 + 0.58 * br / 100) * (1 - 0.6 * z / 100);
+  return [lum * lerp(1, 0.86, n), lum * lerp(1, 0.72, n), lum * lerp(1, 0.52, n)];
+}
+
+// ---------------------------------------------------------------- wallpaper (macOS Tahoe style color fields)
+const WP = 2048;
+function makeWallpaper() {
+  const c = document.createElement("canvas"); c.width = c.height = WP;
+  const g = c.getContext("2d");
+  g.fillStyle = "#1B3A8C"; g.fillRect(0, 0, WP, WP);
+  const blob = (x, y, r, col, a) => {
+    const rg = g.createRadialGradient(x * WP, y * WP, 0, x * WP, y * WP, r * WP);
+    rg.addColorStop(0, col); rg.addColorStop(1, col + "00");
+    g.globalAlpha = a; g.fillStyle = rg; g.fillRect(0, 0, WP, WP); g.globalAlpha = 1;
+  };
+  blob(0.18, 0.78, 0.62, "#2BB3B1", 0.95);
+  blob(0.84, 0.2, 0.58, "#7B5CFF", 0.95);
+  blob(0.5, 0.45, 0.42, "#2A56C9", 0.6);
+  blob(0.74, 0.76, 0.3, "#FFB38A", 0.9);
+  blob(0.3, 0.16, 0.3, "#7B5CFF", 0.45);
+  // Two flowing ribbons, like Tahoe's waves.
+  g.filter = "blur(70px)"; g.lineCap = "round";
+  const ribbon = (pts, col, wdt, a) => {
+    g.globalAlpha = a; g.strokeStyle = col; g.lineWidth = wdt;
+    g.beginPath(); g.moveTo(pts[0] * WP, pts[1] * WP);
+    g.bezierCurveTo(pts[2] * WP, pts[3] * WP, pts[4] * WP, pts[5] * WP, pts[6] * WP, pts[7] * WP); g.stroke();
+    g.globalAlpha = 1;
+  };
+  ribbon([-0.1, 0.62, 0.3, 0.35, 0.6, 0.95, 1.1, 0.55], "#2BB3B1", 220, 0.55);
+  ribbon([-0.1, 0.3, 0.35, 0.05, 0.62, 0.62, 1.1, 0.3], "#9C86FF", 180, 0.45);
+  g.filter = "none";
+  const soft = document.createElement("canvas"); soft.width = soft.height = WP;
+  const sg = soft.getContext("2d"); sg.filter = "blur(24px)"; sg.drawImage(c, 0, 0);
+  return soft;
+}
+function blurred(src, px) {
+  const c = document.createElement("canvas"); c.width = c.height = WP;
+  const g = c.getContext("2d"); g.filter = `blur(${px}px)`; g.drawImage(src, 0, 0); return c;
+}
+
+// ---------------------------------------------------------------- WebGL2 glass pass
+const MAXS = 6;
+const FS = `#version 300 es
+precision highp float;
+out vec4 o;
+uniform vec2 uRes;
+uniform sampler2D uW0, uW1, uW2;
+uniform vec4 uRect[${MAXS}];   // center.xy, half size.xy (screen px)
+uniform vec4 uP[${MAXS}];      // radius, tint, rim boost, clear lens (0/1)
+uniform int uN;
+uniform float uK, uZ;
+uniform vec3 uExpo;
+uniform vec4 uWall;            // center offset xy, scale, unused
+uniform vec4 uTrack;           // toggle track: center xy, half size xy (screen px)
+uniform vec4 uTrackCol;        // rgb, alpha (0 when the toggle is hidden)
+uniform float uTrackR;
+
+float sdRR(vec2 p, vec4 r, float rad) {
+  vec2 q = abs(p - r.xy) - r.zw + rad;
+  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - rad;
+}
+float smin(float a, float b, float k) { float h = max(k - abs(a - b), 0.0) / k; return min(a, b) - h * h * k * 0.25; }
+vec2 wuv(vec2 p) { return (p - 720.0 - uWall.xy) / (1440.0 * 1.7 * uWall.z) + 0.5; }
+vec3 wall(vec2 p, float frost) {
+  vec2 uv = wuv(p);
+  vec3 a = texture(uW0, uv).rgb, m = texture(uW1, uv).rgb, h = texture(uW2, uv).rgb;
+  vec3 c = frost < 0.5 ? mix(a, m, frost * 2.0) : mix(m, h, frost * 2.0 - 1.0);
+  return c * uExpo;
+}
+// Union of the non-lens glass shapes; returns distance and index of the nearest shape.
+float scene(vec2 p, out int idx) {
+  float d = 1e5; float best = 1e5; idx = -1;
+  for (int i = 0; i < ${MAXS}; i++) {
+    if (i >= uN) break;
+    if (uP[i].w > 0.5 || uRect[i].z < 0.5) continue;
+    float di = sdRR(p, uRect[i], min(uP[i].x, min(uRect[i].z, uRect[i].w)));
+    if (di < best) { best = di; idx = i; }
+    d = (d > 9e4) ? di : smin(d, di, uK);
+  }
+  return d;
+}
+float sceneD(vec2 p) { int k; return scene(p, k); }
+
+vec3 glass(vec2 p, float d, vec2 n, float tint, float rimBoost, float thick, float frost, float clearLens, vec2 center) {
+  float edge = 1.0 - smoothstep(0.0, 14.0 * uZ * thick, -d);
+  vec2 off = -n * edge * edge * 26.0 * uZ * thick;
+  vec2 sp = p + off;
+  if (clearLens > 0.5) sp = center + (sp - center) * 0.82;       // a lens magnifies what is under it
+  float ca = edge * 1.0;                                         // at most 1px of chromatic aberration, rim only
+  vec3 col = vec3(wall(sp + n * ca, frost).r, wall(sp, frost).g, wall(sp - n * ca, frost).b);
+  // Adaptive legibility: lighten the glass where the wallpaper under it is dark, instead of a heavier fixed tint.
+  float L = dot(col, vec3(0.2126, 0.7152, 0.0722));
+  float need = clamp((0.74 - L) / max(1.0 - L, 0.05), 0.0, 0.62);
+  col = mix(col, vec3(1.0), max(tint, need * (1.0 - clearLens)));
+  // 1px specular rim lit from the top-left, fainter counter-highlight bottom-right.
+  float rim = 1.0 - smoothstep(0.0, 1.4, -d);
+  vec2 L1 = normalize(vec2(-1.0, -1.2));
+  col += rim * max(dot(n, L1), 0.0) * (0.55 + rimBoost);
+  col += rim * max(dot(n, -L1), 0.0) * 0.22;
+  // Soft inner falloff along the rim so the edge reads as thickness.
+  col = mix(col, col * 1.04 + 0.02, edge * 0.5);
+  return col;
+}
+
+// The toggle track is opaque content on the glass, drawn in this pass so the knob lens can refract it.
+vec3 overTrack(vec2 q, vec3 c) {
+  if (uTrackCol.a <= 0.0) return c;
+  float dt = sdRR(q, uTrack, uTrackR);
+  return mix(c, uTrackCol.rgb, clamp(0.5 - dt, 0.0, 1.0) * uTrackCol.a);
+}
+// What sits under a point: the glass union (with its own refraction) or the wallpaper, plus the track.
+vec3 under(vec2 q) {
+  int k; float d = scene(q, k);
+  vec3 c = wall(q, 0.0);
+  if (k >= 0 && d < 0.0) {
+    float e = 0.8;
+    vec2 n = normalize(vec2(sceneD(q + vec2(e, 0.0)) - sceneD(q - vec2(e, 0.0)), sceneD(q + vec2(0.0, e)) - sceneD(q - vec2(0.0, e))) + 1e-6);
+    c = glass(q, d, n, uP[k].y, uP[k].z, 1.0, 0.42, 0.0, uRect[k].xy);
+  }
+  return overTrack(q, c);
+}
+
+void main() {
+  vec2 p = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
+  vec3 bg = wall(p, 0.0);
+  int idx; float d = scene(p, idx);
+  // Contact shadow: 0 10 30 at 12% black.
+  int k2; float ds = scene(p - vec2(0.0, 10.0 * uZ), k2);
+  float sh = clamp(1.0 - max(ds, 0.0) / (30.0 * uZ), 0.0, 1.0);
+  vec3 col = bg * (1.0 - 0.12 * sh * sh * step(0.0, d));
+  if (idx >= 0 && d < 1.0) {
+    float e = 0.8;
+    vec2 n = normalize(vec2(sceneD(p + vec2(e, 0.0)) - sceneD(p - vec2(e, 0.0)), sceneD(p + vec2(0.0, e)) - sceneD(p - vec2(0.0, e))) + 1e-6);
+    vec3 g = glass(p, d, n, uP[idx].y, uP[idx].z, 1.0, 0.42, 0.0, uRect[idx].xy);
+    col = mix(col, g, clamp(0.5 - d, 0.0, 1.0));
+  }
+  col = overTrack(p, col);
+  // The clear lens (toggle knob) sits on top and is not merged.
+  for (int i = 0; i < ${MAXS}; i++) {
+    if (i >= uN) break;
+    if (uP[i].w < 0.5 || uRect[i].z < 0.5) continue;
+    float rad = min(uP[i].x, min(uRect[i].z, uRect[i].w));
+    float dl = sdRR(p, uRect[i], rad);
+    if (dl < 1.0) {
+      float e = 0.8;
+      vec2 n = normalize(vec2(sdRR(p + vec2(e, 0.0), uRect[i], rad) - sdRR(p - vec2(e, 0.0), uRect[i], rad),
+                              sdRR(p + vec2(0.0, e), uRect[i], rad) - sdRR(p - vec2(0.0, e), uRect[i], rad)) + 1e-6);
+      // A clear lens: it magnifies and bends what is under it (track, row glass, wallpaper), no frost.
+      float edge = 1.0 - smoothstep(0.0, 16.0 * uZ, -dl);
+      vec2 sp = uRect[i].xy + (p - n * edge * edge * 30.0 * uZ - uRect[i].xy) * 0.8;
+      vec3 g = under(sp);
+      g = mix(g, vec3(1.0), 0.05);
+      float rim = 1.0 - smoothstep(0.0, 1.4, -dl);
+      vec2 L1 = normalize(vec2(-1.0, -1.2));
+      g += rim * max(dot(n, L1), 0.0) * 0.9 + rim * max(dot(n, -L1), 0.0) * 0.3;
+      g += edge * edge * 0.06;
+      col = mix(col, g, clamp(0.5 - dl, 0.0, 1.0));
+    }
+  }
+  o = vec4(col, 1.0);
+}`;
+const VS = `#version 300 es
+in vec2 a; void main() { gl_Position = vec4(a, 0.0, 1.0); }`;
+
+const canvas = document.getElementById("gl");
+const gl = canvas.getContext("webgl2", { preserveDrawingBuffer: true, antialias: false });
+function shader(type, src) {
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+const prog = gl.createProgram();
+gl.attachShader(prog, shader(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(prog); gl.useProgram(prog);
+const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+const aLoc = gl.getAttribLocation(prog, "a"); gl.enableVertexAttribArray(aLoc); gl.vertexAttribPointer(aLoc, 2, gl.FLOAT, false, 0, 0);
+const U = n => gl.getUniformLocation(prog, n);
+const wallBase = makeWallpaper();
+[wallBase, blurred(wallBase, 18), blurred(wallBase, 46)].forEach((src, i) => {
+  const tex = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.uniform1i(U(`uW${i}`), i);
+});
+gl.uniform2f(U("uRes"), 1440, 1440);
+const wallURL = wallBase.toDataURL("image/jpeg", 0.85);
+
+// ---------------------------------------------------------------- DOM content
+const T = { body: "t body", label: "t label", title: "t title" };
+// Menu bar icon: a ring that fills from the bottom with the brightness level (Umbra's own icon).
+const gIcon = el(world, "", "width:64px;height:64px");
+gIcon.innerHTML = `<svg width="64" height="64" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6" fill="none" stroke="${LABEL}" stroke-width="1.8"/>
+  <clipPath id="lvl"><circle cx="12" cy="12" r="6.2"/></clipPath><rect id="lvlFill" x="0" y="0" width="24" height="24" fill="${LABEL}" clip-path="url(#lvl)"/></svg>`;
+const lvlFill = gIcon.querySelector("#lvlFill");
+
+// Card: header, mode picker, status, rows.
+const gHeader = el(world, `<div style="display:flex;align-items:center;gap:14px;height:100%">${svg("sun", 34, LABEL)}<span class="${T.title}" style="font-size:34px">Umbra</span></div>`);
+const gPicker = el(world, "", `border-radius:12px;background:rgba(29,29,31,0.08)`);
+const pill = el(gPicker, "", "border-radius:8px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,0.12)");
+const hover = el(gPicker, "", "border-radius:8px;background:rgba(255,255,255,0.42)");
+const segLabels = SEG.map((s, i) => el(gPicker, `<div class="${T.label}" style="font-size:20px;text-align:center;line-height:56px">${s}</div>`,
+  `left:${SEG_W * i}px;top:0;width:${SEG_W}px;height:56px`));
+const status = [
+  ["You control brightness with sliders and keys.", b(4), b(15)],
+  ["Following Built-in Display", b(15), b(16)],
+  ["Sun at 34°, target 63%", b(16), b(17)],
+].map(([s, a, z]) => ({ e: el(world, `<div class="${T.body} sec" style="font-size:22px">${s}</div>`), a, z }));
+function row(name) {
+  const g = el(world);
+  g.innerHTML = `<div class="${T.label}" style="position:absolute;left:0;top:0;font-size:24px">${name}</div>
+    <div class="${T.label} num" style="position:absolute;right:0;top:0;font-size:24px"></div>
+    <div style="position:absolute;left:0;border-radius:99px;background:rgba(29,29,31,0.12)"></div>
+    <div style="position:absolute;left:0;border-radius:99px;background:${ACCENT}"></div>
+    <div style="position:absolute;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.22)"></div>`;
+  const [, val, track, fill, knob] = g.children;
+  return { g, val, track, fill, knob };
+}
+const rowA = row("Built-in Display"), rowB = row("C27F390");
+const rowMoon = el(world);
+rowMoon.innerHTML = `<div style="position:absolute;left:0">${svg("moon", 26, LABEL)}</div>
+  <div style="position:absolute;border-radius:99px;background:rgba(29,29,31,0.12)"></div>
+  <div style="position:absolute;border-radius:99px;background:${ACCENT}"></div>
+  <div style="position:absolute;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.22)"></div>`;
+const [moonIcon, mTrack, mFill, mKnob] = rowMoon.children;
+function drawSlider(r, left, width, yTop, value, thick, stretch = 0) {
+  const h = lerp(10, 18, thick), kd = lerp(26, 30, thick);
+  const w = width + stretch, x = left + stretch * 0.3;
+  for (const e of [r.track, r.fill]) { e.style.top = `${yTop - h / 2}px`; e.style.height = `${h}px`; }
+  r.track.style.left = `${x}px`; r.track.style.width = `${w}px`;
+  r.fill.style.left = `${x}px`; r.fill.style.width = `${Math.max(h, w * value / 100)}px`;
+  r.knob.style.width = r.knob.style.height = `${kd}px`;
+  r.knob.style.left = `${x + w * value / 100 - kd / 2}px`; r.knob.style.top = `${yTop - kd / 2}px`;
+}
+
+// Brightness display pill and the key cap under it.
+const gOSD = el(world);
+gOSD.innerHTML = `<div style="position:absolute;left:0;top:0">${svg("sun", 40, LABEL)}</div>
+  <div style="position:absolute;left:64px;top:14px;height:12px;border-radius:6px;background:rgba(29,29,31,0.12)"></div>
+  <div style="position:absolute;left:64px;top:14px;height:12px;border-radius:6px;background:${ACCENT}"></div>
+  <div class="${T.title} num" style="position:absolute;right:0;top:0;font-size:32px;line-height:40px"></div>`;
+const [, osdTrack, osdFill, osdVal] = gOSD.children;
+const gKey = el(world, `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center">${svg("sun", 34, LABEL)}</div>`,
+  "border-radius:18px;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,0.12)");
+
+// Night Mode row: icon (sun that morphs to a moon), label, toggle.
+const gTog = el(world);
+gTog.innerHTML = `<svg style="position:absolute;left:0;top:0" width="44" height="44" viewBox="0 0 24 24">
+    <mask id="cres"><rect width="24" height="24" fill="#fff"/><circle id="cut" cx="20" cy="4" r="0" fill="#000"/></mask>
+    <g id="rays" stroke="${LABEL}" stroke-width="2" stroke-linecap="round">${[...Array(8)].map((_, i) => { const a = i * Math.PI / 4, c = Math.cos(a), s = Math.sin(a);
+      return `<line x1="${12 + c * 7.4}" y1="${12 + s * 7.4}" x2="${12 + c * 9.9}" y2="${12 + s * 9.9}"/>`; }).join("")}</g>
+    <circle id="disc" cx="12" cy="12" r="4.4" fill="${LABEL}" mask="url(#cres)"/></svg>
+  <div class="${T.label}" style="position:absolute;left:62px;top:0;font-size:30px;line-height:44px">Night Mode</div>`;
+const rays = gTog.querySelector("#rays"), disc = gTog.querySelector("#disc"), cut = gTog.querySelector("#cut");
+const togTrack = el(world, "", "border-radius:38px");
+const togKnob = el(world, "", "border-radius:32px;box-shadow:0 1px 3px rgba(0,0,0,0.2)");
+
+// Display tiles: mini screens show the same wallpaper, dimmed and warmed with the rest.
+function tile(name) {
+  const g = el(world);
+  g.innerHTML = `<div style="position:absolute;left:16px;top:16px;border-radius:18px;overflow:hidden;background:url(${wallURL}) center/260% no-repeat">
+      <div style="position:absolute;inset:0;background:#000"></div></div>
+    <div class="${T.label}" style="position:absolute;left:22px;font-size:25px"></div>
+    <div style="position:absolute;width:40px;height:40px;border-radius:20px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.18);display:flex;align-items:center;justify-content:center">${svg("power", 22, LABEL)}</div>`;
+  const [scr, lab, pw] = g.children; lab.textContent = name;
+  return { g, scr, dark: scr.firstElementChild, lab, pw };
+}
+const tiles = [tile("Built-in"), tile("LG UltraFine"), tile("C27F390")];
+
+// Siri capsule: waveform, words, then a checkmark.
+const gSiri = el(world);
+gSiri.innerHTML = `<div style="position:absolute;left:0;top:0;width:44px;height:44px;display:flex;align-items:center;gap:4px;justify-content:center">
+  ${[0, 1, 2, 3, 4].map(() => `<div style="width:5px;border-radius:3px;background:${ACCENT}"></div>`).join("")}</div>`;
+const siriBars = [...gSiri.firstElementChild.children];
+const WORDS = ["Turn", "off", "Night", "Mode"];
+const siriWords = WORDS.map(w => el(world, `<span class="${T.label}" style="font-size:30px">${w}</span>`));
+const gDone = el(world, `<div style="display:flex;align-items:center;gap:14px;height:100%">
+  <svg width="40" height="40" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="${ACCENT}"/>
+  <path id="chk" d="M7.4 12.4l3.1 3.1 6.1-6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" pathLength="1"/></svg>
+  <span class="${T.label}" style="font-size:30px">Night Mode is off</span></div>`);
+const chk = gDone.querySelector("#chk");
+
+// macOS arrow pointer, in screen space so it keeps its size under camera zoom.
+const pointer = el(screenLayer, `<svg width="34" height="50" viewBox="0 0 17 25"><path d="M1.5 1.5v19.2l4.6-4.4 3 7 3.2-1.4-3-6.8h6.3z" fill="#000" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>`,
+  "transform-origin:3px 3px;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.3))");
+
+// ---------------------------------------------------------------- seek(t)
+function seek(tIn) {
+  const t = ((tIn % P) + P) % P;
+  const z = camZ(t), cx = C, cy = C;
+  const wz = 1 + (z - 1) * 0.7;
+  const toS = (x, y) => [(x - cx) * z + 720, (y - cy) * z + 720];
+  world.style.transform = `translate(720px,720px) scale(${z.toFixed(5)}) translate(${-cx}px,${-cy}px)`;
+
+  // Glass shapes (screen space) for the shader.
+  const shapes = [];
+  const push = (x, y, w, h, r, tint, rim, clear = 0) => {
+    const [sx, sy] = toS(x, y);
+    shapes.push([sx, sy, Math.max(0, w * z / 2), Math.max(0, h * z / 2), r * z, tint, rim, clear]);
+  };
+  const sw = 1 + heroSwell(t);
+  const hw = heroW(t), hh = heroH(t), hx = heroX(t);
+  push(hx, C, hw * sw, hh * sw, heroR(t) * Math.min(sw, 1.06), 0.14, heroRim(t) + heroSwell(t) * 4);
+  const lw = tileLW(t), rw = tileRW(t), rsw = 1 + tileRSwell(t);
+  if (lw > 1) push(tileLX(t), C, lw, tileLH(t), TILE.r, 0.14, 0);
+  if (rw > 1) push(tileRX(t) + (rw - TILE.w) / 2 * 0, C, rw * rsw, tileRH(t) * rsw, TILE.r, 0.14, tileRSwell(t) * 4);
+  // Toggle knob lens.
+  const lg = lensGrow(t);
+  const kL = knobTrail(t), kR = knobLead(t);
+  if (lg > 0.02) {
+    const lw2 = lerp(64, 104, lg), lh2 = lerp(64, 84, lg);
+    const left = Math.min(kL, kR) - lw2 / 2, right = Math.max(kL, kR) + lw2 / 2;
+    push((left + right) / 2, C, right - left, lh2, lh2 / 2, 0.04, 0.2, 1);
+  }
+  gl.uniform1i(U("uN"), shapes.length);
+  const R = new Float32Array(MAXS * 4), Pp = new Float32Array(MAXS * 4);
+  shapes.forEach((s, i) => { R.set([s[0], s[1], s[2], s[3]], i * 4); Pp.set([s[4], s[5], s[6], s[7]], i * 4); });
+  gl.uniform4fv(U("uRect"), R); gl.uniform4fv(U("uP"), Pp);
+  gl.uniform1f(U("uK"), 24 * z); gl.uniform1f(U("uZ"), z);
+  const ex = exposure(t); gl.uniform3f(U("uExpo"), ex[0], ex[1], ex[2]);
+  // Wallpaper drift: at most 12 px per bar, looping.
+  const dx = 14 * Math.sin(2 * Math.PI * t / P), dy = 10 * Math.cos(2 * Math.PI * t / P);
+  gl.uniform4f(U("uWall"), dx, dy, wz, 0);
+  // Toggle track (drawn in the glass pass). Off: gray over the glass; on: accent.
+  const sTogGL = swap(t, b(21), b(25));
+  const onGL = clamp((knobLead(t) - knobOff) / (knobOn - knobOff), 0, 1);
+  {
+    const [tx, ty] = toS(trackX, C);
+    gl.uniform4f(U("uTrack"), tx, ty, 64 * z, 38 * z);
+    gl.uniform1f(U("uTrackR"), 38 * z);
+    // Off color is the glass darkened by 14% (dark vibrant fill); on is the accent.
+    const offC = [0.62, 0.64, 0.7], accC = [10 / 255, 132 / 255, 1];
+    const c = offC.map((v, i) => lerp(v, accC[i], onGL));
+    gl.uniform4f(U("uTrackCol"), c[0], c[1], c[2], sTogGL ? sTogGL.op : 0);
+  }
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+  // ---- content
+  const br = brightness(t);
+  // Menu bar icon
+  const sIcon = swap(t, b(31) + 0.35, b(4));
+  if (applySwap(gIcon, sIcon)) { place(gIcon, C, C, 64, 64); lvlFill.setAttribute("y", (5.8 + 12.4 * (1 - br / 100)).toFixed(3)); }
+
+  // Card
+  const ch2 = heroH(t), top = cardTop(Math.max(CARD.h, Math.min(CARD.hMoon, ch2)));
+  const sCard = swap(t, b(4), b(17));
+  if (applySwap(gHeader, sCard)) place(gHeader, IN_L + 150, top + 58, 300, 44);
+  if (applySwap(gPicker, sCard)) {
+    place(gPicker, C, top + 128, IN_W, 56);
+    const L = pillL(t) - IN_L, Rr = pillR(t) - IN_L;
+    Object.assign(pill.style, { left: `${Math.min(L, Rr)}px`, top: "4px", width: `${Math.abs(Rr - L)}px`, height: "48px" });
+    // Hover highlight under the pointer.
+    const hp = px(t) - IN_L, vp = py(t) - (top + 100), hi = Math.floor(hp / SEG_W);
+    const over = vp >= 0 && vp <= 56 && hi >= 0 && hi < 5 && hi !== selSeg(t);
+    hover.style.display = over ? "block" : "none";
+    if (over) Object.assign(hover.style, { left: `${hi * SEG_W + 4}px`, top: "4px", width: `${SEG_W - 8}px`, height: "48px" });
+    segLabels.forEach((s, i) => { s.firstElementChild.style.color = i === selSeg(t) ? LABEL : SECOND; });
+  }
+  status.forEach(s => { if (applySwap(s.e, sCard && swap(t, s.a, s.z) ? { ...swap(t, s.a, s.z), op: swap(t, s.a, s.z).op * sCard.op } : null)) place(s.e, IN_L + 300, top + 190, 600, 28); });
+  const rows = [[rowA, builtIn(t), 0, 0, b(5)], [rowB, br, thickB(t), 0, b(5) + 0.08]];
+  rows.forEach(([r, v, th, , tin], i) => {
+    const s = swap(t, tin, b(17));
+    if (applySwap(r.g, s)) {
+      const y0 = top + 240 + i * 90;
+      place(r.g, C, y0 + 20, IN_W, 80);
+      r.val.textContent = Math.round(v);
+      drawSlider(r, 0, IN_W, 42, v, th);
+    }
+  });
+  const sMoon = swap(t, b(8) + 0.1, b(13));
+  if (applySwap(rowMoon, sMoon)) {
+    place(rowMoon, C, top + 414, IN_W, 40);
+    moonIcon.style.top = "7px";
+    drawSlider({ track: mTrack, fill: mFill, knob: mKnob }, 40, IN_W - 40, 20, subzero(t), thickZ(t), moonStretch(t));
+  }
+
+  // Brightness display pill + key cap
+  const sOSD = swap(t, b(17), b(21));
+  if (applySwap(gOSD, sOSD)) {
+    const w = OSD.w - 88; place(gOSD, C, C, w, 40);
+    const barW = w - 64 - 70;
+    osdTrack.style.width = `${barW}px`; osdFill.style.width = `${Math.max(12, barW * br / 100)}px`;
+    osdVal.textContent = Math.round(br);
+  }
+  const kp = keyPress(t);
+  if (applySwap(gKey, swap(t, b(17) + 0.3, b(21)), `translateY(${(kp * 5).toFixed(2)}px)`)) {
+    place(gKey, C, C + 150, 92, 76);
+    gKey.style.boxShadow = `0 ${lerp(10, 4, kp)}px ${lerp(30, 14, kp)}px rgba(0,0,0,0.12)`;
+  }
+
+  // Night Mode row
+  const sTog = swap(t, b(21), b(25));
+  const on = clamp((knobLead(t) - knobOff) / (knobOn - knobOff), 0, 1);
+  if (applySwap(gTog, sTog)) {
+    place(gTog, C - TOG.w / 2 + 40 + 180, C, 360, 44);
+    const m = clamp(moonMorph(t), 0, 1.05);
+    rays.style.opacity = (1 - Math.min(m, 1)).toFixed(3);
+    rays.style.transform = `scale(${(1 - 0.4 * Math.min(m, 1)).toFixed(3)})`; rays.style.transformOrigin = "12px 12px";
+    disc.setAttribute("r", (4.4 + 3.6 * m).toFixed(3));
+    cut.setAttribute("r", (6.4 * Math.min(m, 1)).toFixed(3));
+    cut.setAttribute("cx", (21 - 4.2 * m).toFixed(3)); cut.setAttribute("cy", (3 + 3.2 * m).toFixed(3));
+  }
+  togTrack.style.display = "none";
+  if (applySwap(togKnob, sTog)) {
+    const lgv = lensGrow(t), kx = (kL + kR) / 2;
+    place(togKnob, kx, C, 64, 64);
+    togKnob.style.background = `rgba(255,255,255,${(1 - clamp(lgv, 0, 1)).toFixed(3)})`;
+    togKnob.style.boxShadow = `0 1px 3px rgba(0,0,0,${(0.2 * (1 - clamp(lgv, 0, 1))).toFixed(3)})`;
+  }
+
+  // Tiles
+  const tileGeo = [[tileLX(t), lw, tileLH(t)], [hx, hw * sw, hh * sw], [tileRX(t), rw * rsw, tileRH(t) * rsw]];
+  const sTiles = swap(t, b(25) + 0.1, b(29));
+  tiles.forEach((tl, i) => {
+    const [x, w, h] = tileGeo[i];
+    if (!applySwap(tl.g, sTiles && w > 60 ? sTiles : null)) return;
+    place(tl.g, x, C, w, h);
+    const sw2 = w - 32;
+    Object.assign(tl.scr.style, { width: `${sw2}px`, height: `${h - 80}px` });
+    tl.dark.style.opacity = (1 - Math.min(1, ex[1] / 0.98)).toFixed(3);
+    tl.dark.style.background = i === 2 ? "#000" : "#000";
+    if (i === 2) tl.dark.style.opacity = Math.max(1 - Math.min(1, ex[1] / 0.98), clamp(blackOut(t), 0, 1)).toFixed(3);
+    // Mini screens warm with Night Mode like the real wallpaper.
+    const nm = nightOn(t);
+    tl.scr.style.filter = nm > 0.01 ? `sepia(${(0.45 * nm).toFixed(3)}) saturate(${(1 - 0.15 * nm).toFixed(3)})` : "none";
+    tl.lab.style.top = `${h - 52}px`;
+    const off = i === 2 ? clamp(blackOut(t), 0, 1) : 0;
+    tl.lab.style.opacity = (1 - off).toFixed(3);
+    const pwx = lerp(w - 56, w / 2 - 20, off);
+    tl.pw.style.left = `${pwx}px`; tl.pw.style.top = `${h - 56}px`;
+  });
+
+  // Siri
+  const sSiri = swap(t, b(29) + 0.02, b(30));
+  if (applySwap(gSiri, sSiri)) {
+    place(gSiri, C - SIRI.w / 2 + 40 + 22, C, 44, 44);
+    siriBars.forEach((bar, i) => { bar.style.height = `${(10 + 18 * Math.abs(Math.sin(t * 7.3 + i * 1.3))).toFixed(1)}px`; });
+  }
+  let wx = C - SIRI.w / 2 + 116;
+  WORDS.forEach((w, i) => {
+    const e = siriWords[i];
+    const wWidth = [66, 44, 76, 76][i];
+    if (applySwap(e, swap(t, b(29) + 0.04 + i * 0.1, b(30)))) place(e, wx + wWidth / 2, C, wWidth, 40);
+    wx += wWidth + 10;
+  });
+  if (applySwap(gDone, swap(t, b(30), b(31)))) {
+    place(gDone, C - SIRI.w / 2 + 40 + 160, C, 320, 40);
+    chk.style.strokeDasharray = "1"; chk.style.strokeDashoffset = (1 - clamp(checkDraw(t), 0, 1)).toFixed(4);
+  }
+
+  // Pointer
+  const [sx, sy] = toS(px(t), py(t));
+  const pp = pointerPress(t);
+  pointer.style.transform = `translate(${(sx - 3).toFixed(2)}px, ${(sy - 3).toFixed(2)}px) scale(${(1 - 0.1 * clamp(pp, 0, 1)).toFixed(4)})`;
+  pointer.style.transformOrigin = "3px 3px";
+}
+window.seek = seek;
+window.promoReady = document.fonts.ready.then(() => { seek(0); return true; });
+seek(0);
+</script>
+</body>
+</html>

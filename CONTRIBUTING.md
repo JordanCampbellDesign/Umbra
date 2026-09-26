@@ -27,3 +27,13 @@ macOS ties Accessibility access to an app's signature. An ad-hoc signed build lo
 ## Report a monitor that doesn't work
 
 Open an issue with the "Monitor compatibility" template. Include the output of `umbra displays` and `UMBRA_DEBUG=1 umbra ddc <display> 0x10`.
+
+## Promo loop
+
+The README loop is built from `docs/promo/promo.html`, where every frame is a pure function of time. To re-render it:
+
+```bash
+cd scripts/promo && npm install && node render.mjs sheet   # one still per beat, for review
+node render.mjs video                                      # 1440x1440 60 fps MP4
+../../scripts/promo/make-webp.sh                           # 720px WebP for the README (needs brew install webp)
+```
