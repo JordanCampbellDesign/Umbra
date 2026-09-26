@@ -1,0 +1,17 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -resolvePackageDependencies -project Umbra.xcodeproj -scheme Umbra -derivedDataPath .xcbuild
+
+Resolve Package Graph
+
+Fetching from https://github.com/sparkle-project/Sparkle (cached)
+
+Creating working copy of package ‘Sparkle’
+
+Checking out 2.10.0 of package ‘Sparkle’
+
+
+Resolved source packages:
+  Sparkle: https://github.com/sparkle-project/Sparkle @ 2.10.0
+
+2026-09-26 12:16:44.137 xcodebuild[56744:4002099] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+resolved source packages: Sparkle

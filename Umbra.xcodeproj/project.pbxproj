@@ -17,6 +17,7 @@
 		424182E28086B5A500C06769 /* Private.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59274938067EF8A365D3F88F /* Private.swift */; };
 		4DA6B7AE55EE1B50DA80223D /* Sun.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2A70E2CA4A576C7224D10BA /* Sun.swift */; };
 		4F88486DA0094958BBAF6C47 /* Engine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FB5AD2F8150232542AE6E35 /* Engine.swift */; };
+		5611EF41E9EC22EDB3C986D6 /* Updater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3425C6B16F46DDB2D2FA2E91 /* Updater.swift */; };
 		6CDC5A77A34E122F98B40135 /* Hotkeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4013CF7CCFED594658E0AF46 /* Hotkeys.swift */; };
 		6F8F7A27A3233FF49CC955F6 /* AppInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE4A0476B0D5F6109F25EE3C /* AppInfo.swift */; };
 		7E6829D51C52618C726EEA52 /* Overlays.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE6C3F27EF521A0ED692537 /* Overlays.swift */; };
@@ -64,6 +65,7 @@
 		1446437B702E8731EA0B8177 /* UmbraControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UmbraControls.swift; sourceTree = "<group>"; };
 		14B68EAF614AF932A2C22D27 /* DDC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DDC.swift; sourceTree = "<group>"; };
 		186DAFDBE9F415B9BC7F5D1D /* Spring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Spring.swift; sourceTree = "<group>"; };
+		3425C6B16F46DDB2D2FA2E91 /* Updater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updater.swift; sourceTree = "<group>"; };
 		35CB0B724B9CBD43C163D971 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		3C105C3B954F9AAEB61EF20D /* Onboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Onboarding.swift; sourceTree = "<group>"; };
 		4013CF7CCFED594658E0AF46 /* Hotkeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hotkeys.swift; sourceTree = "<group>"; };
@@ -134,6 +136,7 @@
 				B3B77A7322464783887F2C95 /* SettingsView.swift */,
 				186DAFDBE9F415B9BC7F5D1D /* Spring.swift */,
 				A2A70E2CA4A576C7224D10BA /* Sun.swift */,
+				3425C6B16F46DDB2D2FA2E91 /* Updater.swift */,
 			);
 			name = Umbra;
 			path = Sources/Umbra;
@@ -287,6 +290,7 @@
 				332CA1F4D3E16DBD245584CC /* SettingsView.swift in Sources */,
 				EAA2C3BF18A04BDA02053FC0 /* Spring.swift in Sources */,
 				4DA6B7AE55EE1B50DA80223D /* Sun.swift in Sources */,
+				5611EF41E9EC22EDB3C986D6 /* Updater.swift in Sources */,
 				BF906D591C41FCBD53C84F05 /* main.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

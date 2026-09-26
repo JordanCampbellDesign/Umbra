@@ -45,5 +45,7 @@
 	<true/>
 	<key>SUFeedURL</key>
 	<string>https://raw.githubusercontent.com/JordanCampbellDesign/Umbra/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>hL3EX2TFEPRbUQAsHpEP0vnPBkfm1GnQMikiNLoLGKg=</string>
 </dict>
 </plist>
