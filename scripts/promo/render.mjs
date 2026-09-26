@@ -17,6 +17,7 @@ const P = 16, FPS = 60, SUB = 4;
 const browser = await chromium.launch({ args: ["--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist"] });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1440 }, deviceScaleFactor: 1 });
 page.on("console", m => { if (m.type() === "warning" || m.type() === "error") console.log("[page]", m.text()); });
+page.on("pageerror", e => console.log("[page error]", e.message.slice(0, 400)));
 await page.goto(page_url);
 await page.evaluate(() => window.promoReady);
 const stage = await page.$("#stage");

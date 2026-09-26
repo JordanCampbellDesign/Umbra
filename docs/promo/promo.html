@@ -5,9 +5,10 @@
 <title>Umbra promo loop</title>
 <!--
   Umbra promo loop: 1440x1440, 16 s (120 BPM, 8 bars, 32 beats), silent.
-  Everything is a pure function of time inside seek(t). No CSS transitions, no timers, no state between frames.
+  A desk with a MacBook and two monitors. Umbra's real menu drives what happens on each screen.
+  Everything is a pure function of time inside seek(t): no CSS transitions, no timers, no state between frames.
   Springs are closed-form step responses. A channel that changes target many times is the sum of one spring
-  per change, extended over the previous cycle, so the loop's last frame flows into its first.
+  per change, extended over the previous cycle, so the last frame flows into the first.
   Render with scripts/promo/render.mjs.
 -->
 <style>
@@ -16,14 +17,12 @@
   #gl { position: absolute; inset: 0; width: 1440px; height: 1440px; }
   #world { position: absolute; left: 0; top: 0; width: 1440px; height: 1440px; transform-origin: 0 0; }
   #screen { position: absolute; inset: 0; pointer-events: none; }
-  .g { position: absolute; left: 0; top: 0; transform-origin: 50% 50%; }
-  .t { font-family: -apple-system, "SF Pro Display", "SF Pro Text", system-ui, sans-serif; color: #1D1D1F; white-space: nowrap; }
+  .g { position: absolute; left: 0; top: 0; }
+  .pt { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  .t { font-family: -apple-system, "SF Pro Text", system-ui, sans-serif; color: #1D1D1F; white-space: nowrap; }
   .num { font-variant-numeric: tabular-nums; }
-  .title { font-weight: 600; letter-spacing: -0.01em; }
-  .label { font-weight: 500; }
-  .body { font-weight: 400; }
   .sec { color: #6E6E73; }
-  svg { overflow: visible; }
+  svg { overflow: visible; display: block; }
 </style>
 </head>
 <body>
@@ -34,13 +33,11 @@
 </div>
 <script>
 "use strict";
-const P = 16;              // loop length in seconds
-const BEAT = 0.5;          // 120 BPM
-const b = n => (n - 1) * BEAT;   // start time of beat n (1-based)
-const ACCENT = "#0A84FF", LABEL = "#1D1D1F", SECOND = "#6E6E73";
+const P = 16, BEAT = 0.5;
+const b = n => (n - 1) * BEAT;                 // start time of beat n (1-based)
+const ACCENT = "#0A84FF", LABEL = "#1D1D1F", SECOND = "#6E6E73", YELLOW = "#FFCC00", INDIGO = "#5E5CE6";
 
 // ---------------------------------------------------------------- springs
-// Closed-form damped step response, Apple parameters: w = 2*pi/response, zeta = dampingFraction.
 function step(t, resp, damp) {
   if (t <= 0) return 0;
   const w = 2 * Math.PI / resp;
@@ -48,7 +45,6 @@ function step(t, resp, damp) {
   const wd = w * Math.sqrt(1 - damp * damp);
   return 1 - Math.exp(-damp * w * t) * (Math.cos(wd * t) + (damp * w / wd) * Math.sin(wd * t));
 }
-// Spring released from value x0 with velocity v0 toward target.
 function springFrom(x0, v0, target, t, resp, damp) {
   if (t <= 0) return x0;
   const w = 2 * Math.PI / resp, A = x0 - target;
@@ -58,183 +54,221 @@ function springFrom(x0, v0, target, t, resp, damp) {
 }
 const MORPH = [0.45, 0.86], PRESS = [0.25, 0.72], SNAP = [0.3, 0.9], CAM = [0.6, 1.0];
 const LEAD = [0.28, 0.86], TRAIL = [0.42, 0.86];
-
-// A looping channel: starts at v0, keys are [time, value, resp?, damp?]. The last value must equal v0.
-// value(t) = v0 + sum of deltas * (step(t - ti) + step(t + P - ti) - 1): the second term is the previous cycle.
+// Looping channel: v0, then keys [time, value, resp?, damp?]; the last value must equal v0.
 function ch(v0, keys, spring = MORPH) {
   let prev = v0;
   const steps = keys.map(k => { const d = k[1] - prev; prev = k[1]; return [k[0], d, k[2] ?? spring[0], k[3] ?? spring[1]]; });
   if (Math.abs(prev - v0) > 1e-6) console.warn("channel does not loop", v0, prev);
-  return t => {
-    let v = v0;
-    for (const [ti, d, r, z] of steps) v += d * (step(t - ti, r, z) + step(t + P - ti, r, z) - 1);
-    return v;
-  };
+  return t => { let v = v0; for (const [ti, d, r, z] of steps) v += d * (step(t - ti, r, z) + step(t + P - ti, r, z) - 1); return v; };
 }
 const vel = (f, t) => (f(t) - f(t - 1e-3)) / 1e-3;
-const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
-const lerp = (a, b, x) => a + (b - a) * x;
-// Rubber-band past a limit: offset = (1 - 1/(x*0.55/d + 1)) * d
+const clamp = (x, a, c) => Math.max(a, Math.min(c, x));
+const lerp = (a, c, x) => a + (c - a) * x;
 const rubber = (x, d) => x <= 0 ? 0 : (1 - 1 / (x * 0.55 / d + 1)) * d;
-
-// Content swap: exit takes 120 ms (blur 6px, scale 0.96, fade); enter starts 60 ms later on its own spring.
+// Content swap: exit 120 ms (blur 6px, scale 0.96, fade); enter 60 ms later on its own spring.
 function swap(t, tin, tout) {
   const wraps = tin > tout;
   const inside = wraps ? (t >= tin || t < tout + 0.12) : (t >= tin && t < tout + 0.12);
   if (!inside) return null;
   let dtIn = t - tin - 0.06; if (dtIn < -P / 2) dtIn += P;
-  const e = clamp(step(dtIn, MORPH[0], MORPH[1]), 0, 1.03);
+  const e = clamp(step(dtIn, ...MORPH), 0, 1);
   let dtOut = t - tout; if (wraps && t >= tin) dtOut = -1;
   const x = clamp(dtOut / 0.12, 0, 1);
-  const op = clamp(Math.min(e, 1) * (1 - x), 0, 1);
+  const op = e * (1 - x);
   if (op <= 0.001) return null;
-  return { op, blur: 6 * Math.max(1 - Math.min(e, 1), x), scale: 0.96 + 0.04 * Math.min(e, 1) - 0.04 * x };
+  return { op, blur: 6 * Math.max(1 - e, x), scale: 0.96 + 0.04 * e - 0.04 * x };
 }
-function applySwap(el, s, extra = "") {
+function show(el, s, base = "") {
   if (!s) { el.style.display = "none"; return false; }
   el.style.display = "block";
   el.style.opacity = s.op.toFixed(4);
   el.style.filter = s.blur > 0.05 ? `blur(${s.blur.toFixed(2)}px)` : "none";
-  el.style.transform = `${extra} scale(${s.scale.toFixed(4)})`;
+  el.style.transform = `${base} scale(${s.scale.toFixed(4)})`;
   return true;
 }
+const on = (el, v) => { el.style.display = v ? "block" : "none"; return v; };
 
-// ---------------------------------------------------------------- icons (one SF Symbols-like set, medium weight)
+// ---------------------------------------------------------------- icons (one SF Symbols-like set)
+const rays = (r1, r2, w) => [...Array(8)].map((_, i) => { const a = i * Math.PI / 4, c = Math.cos(a), s = Math.sin(a);
+  return `<line x1="${12 + c * r1}" y1="${12 + s * r1}" x2="${12 + c * r2}" y2="${12 + s * r2}" stroke="currentColor" stroke-width="${w}" stroke-linecap="round"/>`; }).join("");
 const ICON = {
-  sun: `<circle cx="12" cy="12" r="4.4" fill="none" stroke="currentColor" stroke-width="2"/>` +
-    [...Array(8)].map((_, i) => { const a = i * Math.PI / 4, c = Math.cos(a), s = Math.sin(a);
-      return `<line x1="${12 + c * 7.4}" y1="${12 + s * 7.4}" x2="${12 + c * 9.9}" y2="${12 + s * 9.9}" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`; }).join(""),
-  sunMin: `<circle cx="12" cy="12" r="4.4" fill="none" stroke="currentColor" stroke-width="2"/>` +
-    [...Array(8)].map((_, i) => { const a = i * Math.PI / 4; return `<circle cx="${12 + Math.cos(a) * 8.6}" cy="${12 + Math.sin(a) * 8.6}" r="1.2" fill="currentColor"/>`; }).join(""),
+  sunFill: `<circle cx="12" cy="12" r="5" fill="currentColor"/>${rays(8, 10.6, 2.2)}`,
+  sunMin: `<circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/>` + [...Array(8)].map((_, i) => { const a = i * Math.PI / 4; return `<circle cx="${12 + Math.cos(a) * 8.4}" cy="${12 + Math.sin(a) * 8.4}" r="1.3" fill="currentColor"/>`; }).join(""),
+  sunMax: `<circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/>${rays(7.4, 10.4, 2)}`,
   moon: `<path d="M19.5 14.6A8 8 0 0 1 9.4 4.5a8 8 0 1 0 10.1 10.1z" fill="currentColor"/>`,
-  power: `<path d="M12 3.2v8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/><path d="M7.1 6.3a7.6 7.6 0 1 0 9.8 0" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/>`,
+  half: `<circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.4a8.6 8.6 0 0 1 0 17.2z" fill="currentColor"/>`,
+  speaker: `<path d="M4 9.2h3.6L12 5.4v13.2l-4.4-3.8H4z" fill="currentColor"/><path d="M15.2 9a4.2 4.2 0 0 1 0 6M17.8 6.6a7.6 7.6 0 0 1 0 10.8" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>`,
+  cable: `<rect x="9" y="3" width="6" height="7" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 10v11M10.2 3V1.5M13.8 3V1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`,
+  power: `<path d="M12 3.6v7.6" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M7.3 6.6a7.3 7.3 0 1 0 9.4 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>`,
+  powerCircle: `<circle cx="12" cy="12" r="9.4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 7v5.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8.9 8.9a4.6 4.6 0 1 0 6.2 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`,
+  gear: `<circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/>` + [...Array(8)].map((_, i) => { const a = i * Math.PI / 4; return `<line x1="${12 + Math.cos(a) * 6.4}" y1="${12 + Math.sin(a) * 6.4}" x2="${12 + Math.cos(a) * 9.2}" y2="${12 + Math.sin(a) * 9.2}" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>`; }).join("") + `<circle cx="12" cy="12" r="6.6" fill="none" stroke="currentColor" stroke-width="1.8"/>`,
+  laptop: `<rect x="4" y="5" width="16" height="11" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M2 18.6h20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`,
+  display: `<rect x="3" y="4" width="18" height="12.5" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 20.4h6M12 16.5v3.9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`,
+  person: `<rect x="3" y="3" width="18" height="18" rx="4" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="10" r="3" fill="currentColor"/><path d="M6.8 18a5.2 5.2 0 0 1 10.4 0" fill="currentColor"/>`,
+  sliders: `<path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="9" cy="7" r="2.2" fill="#fff" stroke="currentColor" stroke-width="1.8"/><circle cx="15" cy="12" r="2.2" fill="#fff" stroke="currentColor" stroke-width="1.8"/><circle cx="8" cy="17" r="2.2" fill="#fff" stroke="currentColor" stroke-width="1.8"/>`,
+  ellipsis: `<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="8" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="16" cy="12" r="1.3" fill="currentColor"/>`,
+  chevDown: `<path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`,
+  chevRight: `<path d="M9.5 6.5l5.5 5.5-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`,
+  updown: `<path d="M8 9.5l4-4 4 4M8 14.5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>`,
+  wifi: `<path d="M3.5 9.5a12 12 0 0 1 17 0M6.6 12.7a7.6 7.6 0 0 1 10.8 0M9.6 15.8a3.4 3.4 0 0 1 4.8 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="18.6" r="1.3" fill="currentColor"/>`,
 };
-const svg = (name, size, color = "currentColor") => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" style="color:${color};display:block">${ICON[name]}</svg>`;
+const icon = (name, size, color = "currentColor", extra = "") => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" style="color:${color};${extra}">${ICON[name]}</svg>`;
 
-// ---------------------------------------------------------------- DOM helpers (world coordinates)
+// ---------------------------------------------------------------- DOM helpers
 const world = document.getElementById("world"), screenLayer = document.getElementById("screen");
-function el(parent, html = "", css = "") {
-  const d = document.createElement("div");
-  d.className = "g"; d.style.cssText = css; d.innerHTML = html;
-  parent.appendChild(d); return d;
+function el(parent, html = "", css = "", cls = "g") {
+  const d = document.createElement("div"); d.className = cls; d.style.cssText = css; d.innerHTML = html; parent.appendChild(d); return d;
 }
-const place = (e, x, y, w, h) => { e.style.left = `${(x - w / 2).toFixed(2)}px`; e.style.top = `${(y - h / 2).toFixed(2)}px`; e.style.width = `${w}px`; e.style.height = `${h}px`; };
+const box = (e, x, y, w, h) => Object.assign(e.style, { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${h}px` });
 
-// ---------------------------------------------------------------- scene constants (world units)
-const C = 720;
-const CARD = { w: 760, h: 400, hMoon: 462, r: 44, pad: 32 };
-const IN_L = C - CARD.w / 2 + CARD.pad, IN_R = C + CARD.w / 2 - CARD.pad, IN_W = IN_R - IN_L; // 372..1068
-const SEG = ["Manual", "Sync", "Location", "Clock", "Sensor"];
-const SEG_W = IN_W / 5, segX = i => IN_L + SEG_W * (i + 0.5);
-const MOON_L = IN_L + 40;
-const cardTop = h => C - h / 2;
-const TOG = { w: 600, h: 132, r: 66 };
-const trackX = C + TOG.w / 2 - 28 - 64, knobOff = trackX - 26, knobOn = trackX + 26;
-const TILE = { w: 300, h: 230, r: 34, off: 168, gap: 28 };
-const OSD = { w: 600, h: 124, r: 62 };
-const SIRI = { w: 780, h: 120, r: 60 };
-const CAP = { w: 200, h: 96, r: 48 };
+// ---------------------------------------------------------------- desk layout (world units)
+// Screens: 0 MacBook (front), 1 LG UltraFine (left, behind), 2 Samsung C27F390 (right, behind).
+const SCR = [
+  { x: 720, y: 960, w: 760, h: 494, r: 12, pt: 1512, name: "Built-in Display", uv: [0.0, 0.02] },
+  { x: 380, y: 420, w: 620, h: 349, r: 4, pt: 2560, name: "LG UltraFine", uv: [-0.14, -0.08] },
+  { x: 1060, y: 420, w: 620, h: 349, r: 4, pt: 1920, name: "C27F390", uv: [0.16, -0.05] },
+];
+const K = SCR[0].w / SCR[0].pt;          // world units per macOS point on the MacBook
+const KO = 0.5;                          // Umbra's on-screen display, drawn a little larger than life so it reads on camera
+// Hardware drawn in the GL pass, back to front. type -2: solid with contact shadow, -1: solid, 0..2: screen.
+const ITEMS = [
+  // Stands run down behind the MacBook, so their feet are hidden.
+  { x: 380, y: 700, w: 70, h: 190, r: 6, c: "#C9CBD0", type: -1 },          // LG neck
+  { x: 1060, y: 700, w: 28, h: 180, r: 8, c: "#2B2B2E", type: -1 },         // Samsung neck
+  { x: 380, y: 420, w: 644, h: 373, r: 12, c: "#141416", type: -2 },         // LG bezel
+  { x: 1060, y: 426, w: 640, h: 385, r: 10, c: "#18181B", type: -2 },        // Samsung bezel with chin
+  { x: 380, y: 420, w: 620, h: 349, r: 4, c: "#000000", type: 1 },
+  { x: 1060, y: 420, w: 620, h: 349, r: 4, c: "#000000", type: 2 },
+  { x: 720, y: 1238, w: 900, h: 16, r: 8, c: "#C3C5CA", type: -2 },          // MacBook base
+  { x: 720, y: 964, w: 790, h: 530, r: 22, c: "#0E0E10", type: -2 },         // MacBook bezel
+  { x: 720, y: 960, w: 760, h: 494, r: 12, c: "#000000", type: 0 },
+];
+const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
 
-// ---------------------------------------------------------------- timeline channels
-// Camera (response 0.6, damping 1.0)
-const camZ = ch(2.2, [[b(4), 1.25], [b(17), 1.6], [b(25), 1.0], [b(29), 1.25], [b(31), 2.2]], CAM);
+// Umbra menu (MenuView) in points on the MacBook.
+const POP = { w: 380, r: 22, base: 606 };
+const ICON_X = SCR[0].x + SCR[0].w / 2 - 130 * K, ICON_Y = SCR[0].y - SCR[0].h / 2 + 12 * K;
+const POP_L = Math.min(ICON_X - POP.w * K / 2, SCR[0].x + SCR[0].w / 2 - 6 * K - POP.w * K);
+const POP_T = SCR[0].y - SCR[0].h / 2 + 24 * K + 5 * K;
+const pw = (xPt, yPt) => [POP_L + xPt * K, POP_T + yPt * K];     // popover point -> world
+const CARD_Y = [114, 252, 360], CARD_H = [128, 98, 190];
+const SL_X0 = 48, SL_X1 = 320, SL_W = SL_X1 - SL_X0;               // slider track inside a card row (pt)
+const SEG_W = (POP.w - 24 - 4) / 5, segX = i => 12 + 2 + SEG_W * (i + 0.5);
 
-// Hero glass: the one element that morphs through every state.
-const heroW = ch(CAP.w, [[b(4), CARD.w], [b(17), OSD.w], [b(21), TOG.w], [b(25), TILE.w], [b(29), SIRI.w], [b(31), CAP.w]]);
-const heroH = ch(CAP.h, [[b(4), CARD.h], [b(8) + 0.05, CARD.hMoon], [b(13), CARD.h], [b(17), OSD.h], [b(21), TOG.h], [b(25), TILE.h], [b(29), SIRI.h], [b(31), CAP.h]]);
-const heroR = ch(CAP.r, [[b(4), CARD.r], [b(17), OSD.r], [b(21), TOG.r], [b(25), TILE.r], [b(29), SIRI.r], [b(31), CAP.r]]);
-const heroX = ch(C, [[b(27), 786], [b(28), C]]);
-const heroSwell = ch(0, [[b(3), 0.1, ...PRESS], [b(3) + 0.18, 0, ...PRESS]]);
-const heroRim = ch(0, [[b(2), 0.5, ...SNAP], [b(4), 0, ...SNAP]]);
+// ---------------------------------------------------------------- timeline
+// Camera framings: [zoom, cx, cy]
+const F = {
+  wide: [1.0, 720, 742],
+  icon: [3.0, 990, 812],
+  pop: [2.75, POP_L + POP.w * K / 2, POP_T + 300 * K],
+  sam: [1.66, 1052, 650],
+  foot: [2.9, POP_L + POP.w * K / 2 + 30, POP_T + 470 * K],
+};
+const camKeys = [[b(2), F.icon], [b(4), F.pop], [b(6), F.sam], [b(13), F.pop], [b(15), F.wide], [b(18), F.foot], [b(21) + 0.1, F.wide],
+  [b(22) + 0.3, F.sam], [b(27), F.foot], [b(28) + 0.2, F.wide]];
+const camZ = ch(F.wide[0], camKeys.map(([t, f]) => [t, f[0]]), CAM);
+const camX = ch(F.wide[1], camKeys.map(([t, f]) => [t, f[1]]), CAM);
+const camY = ch(F.wide[2], camKeys.map(([t, f]) => [t, f[2]]), CAM);
 
-// Side tiles split out of the hero like droplets, then merge back into the Siri capsule.
-const tileLX = ch(C, [[b(25), C - TILE.w - TILE.gap], [b(27), 458], [b(28), C - TILE.w - TILE.gap], [b(29), C - 150], [b(29) + 0.5, C]]);
-const tileLW = ch(0, [[b(25) - 0.05, TILE.w], [b(29), 120], [b(29) + 0.45, 0]]);
-const tileLH = ch(0, [[b(25) - 0.05, TILE.h], [b(29), 90], [b(29) + 0.45, 0]]);
-const tileRX = ch(C, [[b(25), C + TILE.w + TILE.gap], [b(29), C + 150], [b(29) + 0.5, C]]);
-const tileRW = ch(0, [[b(25) - 0.05, TILE.w], [b(27), TILE.off], [b(28), TILE.w], [b(29), 120], [b(29) + 0.45, 0]]);
-const tileRH = ch(0, [[b(25) - 0.05, TILE.h], [b(29), 90], [b(29) + 0.45, 0]]);
-const tileRSwell = ch(0, [[b(26), 0.08, ...PRESS], [b(26) + 0.16, 0, ...PRESS], [b(28), 0.08, ...PRESS], [b(28) + 0.16, 0, ...PRESS]]);
-const blackOut = ch(0, [[b(27), 1, 0.3, 1], [b(28), 0, 0.3, 1]]);
+// Pointer (world). Start and end below the laptop so the loop closes with the same position and velocity.
+const START = [1250, 1350];
+const PT = (xPt, yPt) => pw(xPt, yPt);
+const sBright = () => PT(0, CARD_Y[2] + 51)[1];
+const knobX = v => PT(12 + SL_X0 + SL_W * v / 100, 0)[0];
+const moonY = PT(0, CARD_Y[2] + 81)[1];
+const pickY = PT(0, 55)[1];
+const powerSam = PT(12 + 356 - 20, CARD_Y[2] + 22);
+const moreBtn = PT(282, POP.base - 22);
+const MENU_X = 312 - 210;                                          // the More menu is right-aligned to its button
+const nightRow = PT(MENU_X + 90, POP.base - 44 - 4 - 232 + 6 + 20 + 11);
+const pKeys = [
+  [0.05, ICON_X + 2, ICON_Y + 2, 0.7, 0.9],
+  [b(5), knobX(80) + 30, sBright() + 30, ...SNAP],
+  [b(6), knobX(80), sBright(), ...SNAP],
+  [b(6) + 0.35, knobX(28), sBright(), 0.45, 0.9],
+  [b(7) + 0.2, knobX(-6), sBright(), 0.45, 0.9],
+  [b(8) + 0.35, knobX(0), moonY, ...SNAP],
+  [b(9) + 0.05, knobX(100), moonY, 0.55, 0.9],
+  [b(10) + 0.2, knobX(100) + 26 * K, moonY, 0.5, 0.9],
+  [b(12) + 0.05, knobX(0), sBright(), ...SNAP],
+  [b(12) + 0.3, knobX(80), sBright(), 0.35, 0.9],
+  [b(13), PT(segX(1), 55)[0], pickY, ...SNAP],
+  [b(15), 1150, 1180],
+  [b(18), moreBtn[0], moreBtn[1], ...SNAP],
+  [b(20), nightRow[0], nightRow[1], ...SNAP],
+  [b(21) + 0.3, 1150, 1100],
+  [b(22) + 0.3, powerSam[0], powerSam[1], ...SNAP],
+  [b(27) - 0.2, moreBtn[0], moreBtn[1], ...SNAP],
+  [b(27) + 0.3, nightRow[0], nightRow[1], ...SNAP],
+  [b(28) + 0.3, 1150, 1250],
+  [b(31) - 0.2, ICON_X + 2, ICON_Y + 2, 0.45, 0.9],
+  [b(31) + 0.3, START[0], START[1], 0.7, 0.9],
+];
+const px = ch(START[0], pKeys.map(k => [k[0], k[1], k[3] ?? MORPH[0], k[4] ?? MORPH[1]]));
+const py = ch(START[1], pKeys.map(k => [k[0], k[2], k[3] ?? MORPH[0], k[4] ?? MORPH[1]]));
+const CLICKS = [b(3), b(14), b(19), b(21), b(24), b(26), b(27) + 0.05, b(28), b(31)];
+const HOLDS = [[b(6) + 0.1, b(8) + 0.25], [b(9), b(11) + 0.3], [b(12) + 0.2, b(13) - 0.1]];
+const pressKeys = [...CLICKS.flatMap(c => [[c, 1, ...PRESS], [c + 0.14, 0, ...PRESS]]), ...HOLDS.flatMap(([a, z]) => [[a, 1, ...PRESS], [z, 0, ...PRESS]])].sort((a, c) => a[0] - c[0]);
+const pointerPress = ch(0, pressKeys);
 
-// Pointer (world coordinates). Snap moves use response 0.3, glides use the morph spring.
-const px = ch(1120, [[0.05, 760, 0.55, 0.9], [b(4), 800], [b(5), 937, ...SNAP],
-  [b(6) + 0.1, 650, 0.5, 0.9], [b(7) + 0.1, 300, 0.5, 0.9],
-  [b(8) + 0.3, MOON_L + 6, ...SNAP], [b(9) + 0.05, IN_R, 0.5, 0.9], [b(10) + 0.25, IN_R + 150, 0.5, 0.9],
-  [b(12) + 0.05, IN_L, ...SNAP], [b(12) + 0.3, 937, 0.3, 0.9],
-  [b(13) + 0.1, segX(1), ...SNAP], [b(14) + 0.3, segX(2), ...SNAP],
-  [b(17), 990], [b(21), knobOff, ...SNAP], [b(22) + 0.45, knobOn + 8, ...LEAD],
-  [b(24) + 0.2, 1000], [b(25), C + TILE.w + TILE.gap + 110, ...SNAP], [b(27) + 0.1, 1048, ...SNAP],
-  [b(29) + 0.2, 1040], [b(30) + 0.5, 1120, 0.6, 0.95]]);
-const py = ch(1090, [[0.05, 735, 0.55, 0.9], [b(4), 800], [b(5), cardTop(CARD.h) + 354, ...SNAP],
-  [b(8) + 0.3, cardTop(CARD.hMoon) + 414, ...SNAP],
-  [b(12) + 0.05, cardTop(CARD.hMoon) + 354, ...SNAP], [b(13), cardTop(CARD.h) + 354, 0.45, 0.86],
-  [b(13) + 0.1, cardTop(CARD.h) + 128, ...SNAP],
-  [b(17), 880], [b(21), C + 4, ...SNAP],
-  [b(24) + 0.2, 880], [b(25), C + TILE.h / 2 - 34, ...SNAP],
-  [b(29) + 0.2, 1000], [b(30) + 0.5, 1090, 0.6, 0.95]]);
-const pointerPress = ch(0, [[b(3), 1, ...PRESS], [b(3) + 0.15, 0, ...PRESS],
-  [b(6), 1, ...PRESS], [b(8) + 0.25, 0, ...PRESS], [b(9), 1, ...PRESS], [b(12), 0, ...PRESS],
-  [b(12) + 0.25, 1, ...PRESS], [b(13) + 0.05, 0, ...PRESS],
-  [b(14), 1, ...PRESS], [b(14) + 0.15, 0, ...PRESS], [b(16), 1, ...PRESS], [b(16) + 0.15, 0, ...PRESS],
-  [b(22), 1, ...PRESS], [b(24), 0, ...PRESS],
-  [b(26), 1, ...PRESS], [b(26) + 0.15, 0, ...PRESS], [b(28), 1, ...PRESS], [b(28) + 0.15, 0, ...PRESS]]);
+// Hero glass: the menu bar item highlight grows into the popover and back.
+const heroW = ch(0, [[b(2), 30 * K, ...SNAP], [b(4), POP.w * K], [b(31), 30 * K], [b(32), 0, ...SNAP]]);
+const sExtra = ch(0, [[b(8) + 0.1, 30], [b(12) + 0.45, 0], [b(24) + 0.1, -120], [b(26) + 0.05, 0]]);
+const popOpen = ch(0, [[b(4), 1], [b(31), 0]]);
+const heroSwell = ch(0, [[b(3), 0.12, ...PRESS], [b(3) + 0.16, 0, ...PRESS]]);
 
-// Brightness of the C27F390 (and the wallpaper exposure): direct manipulation while held, springs after.
-const B0 = 81.25;
-const T_GRAB1 = b(6), T_REL1 = b(8) + 0.25, T_GRAB2 = b(12) + 0.25, T_REL2 = b(13) + 0.05;
-const heldB = t => clamp((px(t) - IN_L) / IN_W * 100, 0, 100);
-const laterB = ch(0, [[b(16), -18.75], [b(18), -12.5], [b(19), -6.25], [b(20), 0]]);
-function brightness(t) {
-  if (t < T_GRAB1) return B0;
-  if (t < T_REL1) return heldB(t);
-  if (t < T_GRAB2) return 0;
-  if (t < T_REL2) return heldB(t);
-  const x0 = heldB(T_REL2), v0 = vel(heldB, T_REL2);
-  return springFrom(x0, v0, B0, t - T_REL2, ...PRESS) + laterB(t);
+// C27F390 brightness: held while dragged, springs after release, then follows the built-in in Sync.
+const B0 = 80;
+const heldB = t => clamp((px(t) - knobX(0)) / (knobX(100) - knobX(0)) * 100, 0, 100);
+const syncSteps = ch(0, [[b(16), -12.5, ...PRESS], [b(17), -25, ...PRESS], [b(29), -12.5, ...PRESS], [b(30), 0, ...PRESS]]);
+const [H1a, H1b] = HOLDS[0], [H3a, H3b] = HOLDS[2];
+function bSam(t) {
+  if (t < H1a) return B0 + syncSteps(t);
+  if (t < H1b) return heldB(t);
+  if (t < H3a) return 0;
+  if (t < H3b) return heldB(t);
+  return springFrom(heldB(H3b), vel(heldB, H3b), B0, t - H3b, ...PRESS) + syncSteps(t);
 }
-const builtIn = t => B0 + laterB(t);
-// Dim below 0%: held from beat 9, rubber-bands past max, springs back on release, resets when brightness rises.
-const T_GRAB3 = b(9), T_REL3 = b(12), T_RESET = b(12) + 0.4;
-const MOON_W = IN_R - MOON_L;
-const heldZ = t => clamp((px(t) - MOON_L) / MOON_W * 100, 0, 100);
-const heldStretch = t => rubber(px(t) - IN_R, 120);
+const bOther = t => B0 + syncSteps(t);
+// Below 0%: held, a small rubber band at the end (inside the card), springs back, resets as brightness rises.
+const [H2a, H2b] = HOLDS[1];
+const heldZ = t => clamp((px(t) - knobX(0)) / (knobX(100) - knobX(0)) * 100, 0, 100);
+const heldOver = t => rubber((px(t) - knobX(100)) / K, 6);          // at most 6 pt of stretch
 function subzero(t) {
-  if (t < T_GRAB3) return 0;
-  if (t < T_REL3) return heldZ(t);
-  if (t < T_RESET) return 100;
-  return 100 - 100 * step(t - T_RESET, ...MORPH);
+  if (t < H2a) return 0;
+  if (t < H3a) return t < H2b ? heldZ(t) : 100;
+  return 100 * (1 - step(t - H3a - 0.1, ...MORPH));
 }
-function moonStretch(t) {
-  if (t < T_GRAB3) return 0;
-  if (t < T_REL3) return heldStretch(t);
-  return springFrom(heldStretch(T_REL3), vel(heldStretch, T_REL3), 0, t - T_REL3, ...MORPH);
+function zStretch(t) {
+  if (t < H2a) return 0;
+  if (t < H2b) return heldOver(t);
+  return springFrom(heldOver(H2b), vel(heldOver, H2b), 0, t - H2b, ...PRESS);
 }
-const thickB = ch(0, [[T_GRAB1, 1, ...PRESS], [T_REL1, 0, ...PRESS], [T_GRAB2, 1, ...PRESS], [T_REL2, 0, ...PRESS]]);
-const thickZ = ch(0, [[T_GRAB3, 1, ...PRESS], [T_REL3, 0, ...PRESS]]);
+const grabS = ch(0, [[H1a, 1, ...PRESS], [H1b, 0, ...PRESS], [H3a, 1, ...PRESS], [H3b, 0, ...PRESS]]);
+const grabZ = ch(0, [[H2a, 1, ...PRESS], [H2b, 0, ...PRESS]]);
 
-// Mode picker: the selection pill's edges move on separate springs, leading edge first.
-const pillL = ch(IN_L + 4, [[b(14), IN_L + SEG_W + 4, ...TRAIL], [b(16), IN_L + 2 * SEG_W + 4, ...TRAIL], [b(19), IN_L + 4, ...TRAIL]]);
-const pillR = ch(IN_L + SEG_W - 4, [[b(14), IN_L + 2 * SEG_W - 4, ...LEAD], [b(16), IN_L + 3 * SEG_W - 4, ...LEAD], [b(19), IN_L + SEG_W - 4, ...LEAD]]);
-const selSeg = t => (t >= b(16) && t < b(19)) ? 2 : (t >= b(14) && t < b(19)) ? 1 : 0;
+// Mode picker: Manual -> Sync on beat 14; back to Manual while the menu is closed.
+const pillL = ch(12 + 2, [[b(14), 12 + 2 + SEG_W, ...TRAIL], [b(31) + 0.3, 12 + 2, ...TRAIL]]);
+const pillR = ch(12 + 2 + SEG_W, [[b(14), 12 + 2 + 2 * SEG_W, ...LEAD], [b(31) + 0.3, 12 + 2 + SEG_W, ...LEAD]]);
+const isSync = t => t >= b(14) && t < b(31) + 0.3;
 
-// Night Mode toggle: knob edges travel on separate springs; during the hold the knob is a clear glass lens.
-const knobLead = ch(knobOff, [[b(23), knobOn, ...LEAD], [b(25) + 0.2, knobOff, ...LEAD]]);
-const knobTrail = ch(knobOff, [[b(23), knobOn, ...TRAIL], [b(25) + 0.2, knobOff, ...TRAIL]]);
-const lensGrow = ch(0, [[b(22), 1, ...PRESS], [b(24), 0, ...PRESS]]);
-const nightOn = ch(0, [[b(23), 1, 0.7, 1], [b(30), 0, 0.7, 1]]);
-const moonMorph = ch(0, [[b(24), 1], [b(25) + 0.2, 0]]);
-const keyPress = ch(0, [[b(18), 1, ...PRESS], [b(18) + 0.12, 0, ...PRESS], [b(19), 1, ...PRESS], [b(19) + 0.12, 0, ...PRESS], [b(20), 1, ...PRESS], [b(20) + 0.12, 0, ...PRESS]]);
-const checkDraw = ch(0, [[b(30), 1], [b(31) + 0.3, 0]]);
+const night = ch(0, [[b(21), 1, 0.8, 1], [b(28), 0, 0.8, 1]]);
+const blackOut = ch(0, [[b(24), 1, 0.25, 1], [b(26), 0, 0.3, 1]]);
+const samOff = t => t >= b(24) && t < b(26);
+const menuOpen = t => (t >= b(19) && t < b(21)) || (t >= b(27) + 0.1 && t < b(28));
+const keyDown = ch(0, [[b(16), 1, ...PRESS], [b(16) + 0.12, 0, ...PRESS], [b(17), 1, ...PRESS], [b(17) + 0.12, 0, ...PRESS]]);
+const keyUp = ch(0, [[b(29), 1, ...PRESS], [b(29) + 0.12, 0, ...PRESS], [b(30), 1, ...PRESS], [b(30) + 0.12, 0, ...PRESS]]);
 
-// Wallpaper exposure: brightness dims it, below-0% sinks it further, Night Mode warms it.
-function exposure(t) {
-  const br = brightness(t), z = subzero(t), n = nightOn(t);
-  const lum = (0.42 + 0.58 * br / 100) * (1 - 0.6 * z / 100);
-  return [lum * lerp(1, 0.86, n), lum * lerp(1, 0.72, n), lum * lerp(1, 0.52, n)];
+// Per-screen exposure (rgb) and blackout.
+function screenState(i, t) {
+  const br = i === 2 ? bSam(t) : bOther(t);
+  const z = i === 2 ? subzero(t) : 0;
+  const n = night(t);
+  const lum = (0.38 + 0.62 * br / 100) * (1 - 0.82 * z / 100);
+  return { e: [lum * lerp(1, 0.9, n), lum * lerp(1, 0.74, n), lum * lerp(1, 0.52, n)], black: i === 2 ? clamp(blackOut(t), 0, 1) : 0, lum, n };
 }
 
-// ---------------------------------------------------------------- wallpaper (macOS Tahoe style color fields)
+// ---------------------------------------------------------------- wallpaper
 const WP = 2048;
 function makeWallpaper() {
   const c = document.createElement("canvas"); c.width = c.height = WP;
@@ -245,166 +279,117 @@ function makeWallpaper() {
     rg.addColorStop(0, col); rg.addColorStop(1, col + "00");
     g.globalAlpha = a; g.fillStyle = rg; g.fillRect(0, 0, WP, WP); g.globalAlpha = 1;
   };
-  blob(0.18, 0.78, 0.62, "#2BB3B1", 0.95);
-  blob(0.84, 0.2, 0.58, "#7B5CFF", 0.95);
-  blob(0.5, 0.45, 0.42, "#2A56C9", 0.6);
-  blob(0.74, 0.76, 0.3, "#FFB38A", 0.9);
-  blob(0.3, 0.16, 0.3, "#7B5CFF", 0.45);
-  // Two flowing ribbons, like Tahoe's waves.
+  blob(0.18, 0.78, 0.62, "#2BB3B1", 0.95); blob(0.84, 0.2, 0.58, "#7B5CFF", 0.95); blob(0.5, 0.45, 0.42, "#2A56C9", 0.6);
+  blob(0.74, 0.76, 0.3, "#FFB38A", 0.9); blob(0.3, 0.16, 0.3, "#7B5CFF", 0.45);
   g.filter = "blur(70px)"; g.lineCap = "round";
-  const ribbon = (pts, col, wdt, a) => {
-    g.globalAlpha = a; g.strokeStyle = col; g.lineWidth = wdt;
-    g.beginPath(); g.moveTo(pts[0] * WP, pts[1] * WP);
-    g.bezierCurveTo(pts[2] * WP, pts[3] * WP, pts[4] * WP, pts[5] * WP, pts[6] * WP, pts[7] * WP); g.stroke();
-    g.globalAlpha = 1;
-  };
+  const ribbon = (p, col, wd, a) => { g.globalAlpha = a; g.strokeStyle = col; g.lineWidth = wd; g.beginPath(); g.moveTo(p[0] * WP, p[1] * WP);
+    g.bezierCurveTo(p[2] * WP, p[3] * WP, p[4] * WP, p[5] * WP, p[6] * WP, p[7] * WP); g.stroke(); g.globalAlpha = 1; };
   ribbon([-0.1, 0.62, 0.3, 0.35, 0.6, 0.95, 1.1, 0.55], "#2BB3B1", 220, 0.55);
   ribbon([-0.1, 0.3, 0.35, 0.05, 0.62, 0.62, 1.1, 0.3], "#9C86FF", 180, 0.45);
   g.filter = "none";
-  const soft = document.createElement("canvas"); soft.width = soft.height = WP;
-  const sg = soft.getContext("2d"); sg.filter = "blur(24px)"; sg.drawImage(c, 0, 0);
-  return soft;
+  const s = document.createElement("canvas"); s.width = s.height = WP; const sg = s.getContext("2d"); sg.filter = "blur(24px)"; sg.drawImage(c, 0, 0); return s;
 }
-function blurred(src, px) {
-  const c = document.createElement("canvas"); c.width = c.height = WP;
-  const g = c.getContext("2d"); g.filter = `blur(${px}px)`; g.drawImage(src, 0, 0); return c;
-}
+const blurred = (src, px) => { const c = document.createElement("canvas"); c.width = c.height = WP; const g = c.getContext("2d"); g.filter = `blur(${px}px)`; g.drawImage(src, 0, 0); return c; };
 
-// ---------------------------------------------------------------- WebGL2 glass pass
-const MAXS = 6;
+// ---------------------------------------------------------------- WebGL2 pass: backdrop, hardware, screens, glass
+const NI = ITEMS.length, NG = 3;
 const FS = `#version 300 es
 precision highp float;
 out vec4 o;
 uniform vec2 uRes;
 uniform sampler2D uW0, uW1, uW2;
-uniform vec4 uRect[${MAXS}];   // center.xy, half size.xy (screen px)
-uniform vec4 uP[${MAXS}];      // radius, tint, rim boost, clear lens (0/1)
-uniform int uN;
-uniform float uK, uZ;
-uniform vec3 uExpo;
-uniform vec4 uWall;            // center offset xy, scale, unused
-uniform vec4 uTrack;           // toggle track: center xy, half size xy (screen px)
-uniform vec4 uTrackCol;        // rgb, alpha (0 when the toggle is hidden)
-uniform float uTrackR;
+uniform vec4 uItem[${NI}];   // center xy, half size xy (screen px)
+uniform vec4 uItemC[${NI}];  // rgb, radius
+uniform float uItemT[${NI}]; // -2 solid+shadow, -1 solid, 0..2 screen index
+uniform vec4 uScrUV[3];      // uv offset xy, uv scale, blackout
+uniform vec3 uScrE[3];       // exposure rgb
+uniform vec4 uScrR[3];       // screen rect (screen px) for uv mapping
+uniform vec4 uG[${NG}];      // glass rects
+uniform vec4 uGP[${NG}];     // radius, tint, rim boost, screen index
+uniform int uNG;
+uniform float uZ, uK;
+uniform vec3 uBg;
 
-float sdRR(vec2 p, vec4 r, float rad) {
-  vec2 q = abs(p - r.xy) - r.zw + rad;
-  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - rad;
-}
-float smin(float a, float b, float k) { float h = max(k - abs(a - b), 0.0) / k; return min(a, b) - h * h * k * 0.25; }
-vec2 wuv(vec2 p) { return (p - 720.0 - uWall.xy) / (1440.0 * 1.7 * uWall.z) + 0.5; }
-vec3 wall(vec2 p, float frost) {
-  vec2 uv = wuv(p);
+float sdRR(vec2 p, vec4 r, float rad) { vec2 q = abs(p - r.xy) - r.zw + rad; return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - rad; }
+float smin(float a, float c, float k) { float h = max(k - abs(a - c), 0.0) / k; return min(a, c) - h * h * k * 0.25; }
+vec3 wallRaw(int i, vec2 q, float frost) {
+  vec4 r = uScrR[i];
+  vec2 uv = 0.5 + (q - r.xy) / (2.0 * r.z) * uScrUV[i].z + uScrUV[i].xy;
   vec3 a = texture(uW0, uv).rgb, m = texture(uW1, uv).rgb, h = texture(uW2, uv).rgb;
-  vec3 c = frost < 0.5 ? mix(a, m, frost * 2.0) : mix(m, h, frost * 2.0 - 1.0);
-  return c * uExpo;
+  return frost < 0.5 ? mix(a, m, frost * 2.0) : mix(m, h, frost * 2.0 - 1.0);
 }
-// Union of the non-lens glass shapes; returns distance and index of the nearest shape.
-float scene(vec2 p, out int idx) {
-  float d = 1e5; float best = 1e5; idx = -1;
-  for (int i = 0; i < ${MAXS}; i++) {
-    if (i >= uN) break;
-    if (uP[i].w > 0.5 || uRect[i].z < 0.5) continue;
-    float di = sdRR(p, uRect[i], min(uP[i].x, min(uRect[i].z, uRect[i].w)));
+vec3 expose(int i, vec3 c) { return mix(c * uScrE[i], vec3(0.0), uScrUV[i].w); }
+vec3 scene(vec2 p) {
+  vec3 col = uBg;
+  // Soft contact shadow for the hardware on the backdrop.
+  float ds = 1e5;
+  for (int i = 0; i < ${NI}; i++) if (uItemT[i] < -1.5) ds = min(ds, sdRR(p - vec2(0.0, 14.0 * uZ), uItem[i], uItemC[i].w));
+  float sh = clamp(1.0 - max(ds, 0.0) / (40.0 * uZ), 0.0, 1.0);
+  col *= 1.0 - 0.13 * sh * sh;
+  for (int i = 0; i < ${NI}; i++) {
+    float d = sdRR(p, uItem[i], uItemC[i].w);
+    float a = clamp(0.5 - d, 0.0, 1.0);
+    if (a <= 0.0) continue;
+    vec3 c = uItemC[i].rgb;
+    if (uItemT[i] > -0.5) { int s = int(uItemT[i] + 0.5); c = expose(s, wallRaw(s, p, 0.0)); }
+    col = mix(col, c, a);
+  }
+  return col;
+}
+float glassD(vec2 p, out int idx) {
+  float d = 1e5, best = 1e5; idx = -1;
+  for (int i = 0; i < ${NG}; i++) {
+    if (i >= uNG) break;
+    if (uG[i].z < 0.5) continue;
+    float di = sdRR(p, uG[i], min(uGP[i].x, min(uG[i].z, uG[i].w)));
     if (di < best) { best = di; idx = i; }
-    d = (d > 9e4) ? di : smin(d, di, uK);
+    d = d > 9e4 ? di : smin(d, di, uK);
   }
   return d;
 }
-float sceneD(vec2 p) { int k; return scene(p, k); }
-
-vec3 glass(vec2 p, float d, vec2 n, float tint, float rimBoost, float thick, float frost, float clearLens, vec2 center) {
-  float edge = 1.0 - smoothstep(0.0, 14.0 * uZ * thick, -d);
-  vec2 off = -n * edge * edge * 26.0 * uZ * thick;
-  vec2 sp = p + off;
-  if (clearLens > 0.5) sp = center + (sp - center) * 0.82;       // a lens magnifies what is under it
-  float ca = edge * 1.0;                                         // at most 1px of chromatic aberration, rim only
-  vec3 col = vec3(wall(sp + n * ca, frost).r, wall(sp, frost).g, wall(sp - n * ca, frost).b);
-  // Adaptive legibility: lighten the glass where the wallpaper under it is dark, instead of a heavier fixed tint.
-  float L = dot(col, vec3(0.2126, 0.7152, 0.0722));
-  float need = clamp((0.74 - L) / max(1.0 - L, 0.05), 0.0, 0.62);
-  col = mix(col, vec3(1.0), max(tint, need * (1.0 - clearLens)));
-  // 1px specular rim lit from the top-left, fainter counter-highlight bottom-right.
-  float rim = 1.0 - smoothstep(0.0, 1.4, -d);
-  vec2 L1 = normalize(vec2(-1.0, -1.2));
-  col += rim * max(dot(n, L1), 0.0) * (0.55 + rimBoost);
-  col += rim * max(dot(n, -L1), 0.0) * 0.22;
-  // Soft inner falloff along the rim so the edge reads as thickness.
-  col = mix(col, col * 1.04 + 0.02, edge * 0.5);
-  return col;
-}
-
-// The toggle track is opaque content on the glass, drawn in this pass so the knob lens can refract it.
-vec3 overTrack(vec2 q, vec3 c) {
-  if (uTrackCol.a <= 0.0) return c;
-  float dt = sdRR(q, uTrack, uTrackR);
-  return mix(c, uTrackCol.rgb, clamp(0.5 - dt, 0.0, 1.0) * uTrackCol.a);
-}
-// What sits under a point: the glass union (with its own refraction) or the wallpaper, plus the track.
-vec3 under(vec2 q) {
-  int k; float d = scene(q, k);
-  vec3 c = wall(q, 0.0);
-  if (k >= 0 && d < 0.0) {
-    float e = 0.8;
-    vec2 n = normalize(vec2(sceneD(q + vec2(e, 0.0)) - sceneD(q - vec2(e, 0.0)), sceneD(q + vec2(0.0, e)) - sceneD(q - vec2(0.0, e))) + 1e-6);
-    c = glass(q, d, n, uP[k].y, uP[k].z, 1.0, 0.42, 0.0, uRect[k].xy);
-  }
-  return overTrack(q, c);
-}
-
+float gD(vec2 p) { int k; return glassD(p, k); }
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
-  vec3 bg = wall(p, 0.0);
-  int idx; float d = scene(p, idx);
-  // Contact shadow: 0 10 30 at 12% black.
-  int k2; float ds = scene(p - vec2(0.0, 10.0 * uZ), k2);
-  float sh = clamp(1.0 - max(ds, 0.0) / (30.0 * uZ), 0.0, 1.0);
-  vec3 col = bg * (1.0 - 0.12 * sh * sh * step(0.0, d));
-  if (idx >= 0 && d < 1.0) {
-    float e = 0.8;
-    vec2 n = normalize(vec2(sceneD(p + vec2(e, 0.0)) - sceneD(p - vec2(e, 0.0)), sceneD(p + vec2(0.0, e)) - sceneD(p - vec2(0.0, e))) + 1e-6);
-    vec3 g = glass(p, d, n, uP[idx].y, uP[idx].z, 1.0, 0.42, 0.0, uRect[idx].xy);
-    col = mix(col, g, clamp(0.5 - d, 0.0, 1.0));
+  vec3 col = scene(p);
+  int idx; float d = glassD(p, idx);
+  // Glass casts a soft 0 10 30 shadow onto its screen.
+  int k2; float dsh = glassD(p - vec2(0.0, 10.0 * uZ * 0.35), k2);
+  if (idx >= 0) {
+    int s = int(uGP[idx].w + 0.5);
+    float inScr = step(sdRR(p, uScrR[s], 0.0), 0.0);
+    float sh = clamp(1.0 - max(dsh, 0.0) / (30.0 * uZ * 0.35), 0.0, 1.0);
+    col *= 1.0 - 0.12 * sh * sh * step(0.0, d) * inScr;
   }
-  col = overTrack(p, col);
-  // The clear lens (toggle knob) sits on top and is not merged.
-  for (int i = 0; i < ${MAXS}; i++) {
-    if (i >= uN) break;
-    if (uP[i].w < 0.5 || uRect[i].z < 0.5) continue;
-    float rad = min(uP[i].x, min(uRect[i].z, uRect[i].w));
-    float dl = sdRR(p, uRect[i], rad);
-    if (dl < 1.0) {
-      float e = 0.8;
-      vec2 n = normalize(vec2(sdRR(p + vec2(e, 0.0), uRect[i], rad) - sdRR(p - vec2(e, 0.0), uRect[i], rad),
-                              sdRR(p + vec2(0.0, e), uRect[i], rad) - sdRR(p - vec2(0.0, e), uRect[i], rad)) + 1e-6);
-      // A clear lens: it magnifies and bends what is under it (track, row glass, wallpaper), no frost.
-      float edge = 1.0 - smoothstep(0.0, 16.0 * uZ, -dl);
-      vec2 sp = uRect[i].xy + (p - n * edge * edge * 30.0 * uZ - uRect[i].xy) * 0.8;
-      vec3 g = under(sp);
-      g = mix(g, vec3(1.0), 0.05);
-      float rim = 1.0 - smoothstep(0.0, 1.4, -dl);
-      vec2 L1 = normalize(vec2(-1.0, -1.2));
-      g += rim * max(dot(n, L1), 0.0) * 0.9 + rim * max(dot(n, -L1), 0.0) * 0.3;
-      g += edge * edge * 0.06;
-      col = mix(col, g, clamp(0.5 - dl, 0.0, 1.0));
-    }
+  if (idx >= 0 && d < 1.0) {
+    int s = int(uGP[idx].w + 0.5);
+    float e = 0.7;
+    vec2 n = normalize(vec2(gD(p + vec2(e, 0.0)) - gD(p - vec2(e, 0.0)), gD(p + vec2(0.0, e)) - gD(p - vec2(0.0, e))) + 1e-6);
+    float thick = uZ * 0.35;
+    float edge = 1.0 - smoothstep(0.0, 14.0 * thick, -d);
+    vec2 sp = p - n * edge * edge * 24.0 * thick;
+    float ca = edge;   // at most 1px chromatic aberration, rim only
+    vec3 g = vec3(wallRaw(s, sp + n * ca, 0.42).r, wallRaw(s, sp, 0.42).g, wallRaw(s, sp - n * ca, 0.42).b);
+    float L = dot(g, vec3(0.2126, 0.7152, 0.0722));
+    float need = clamp((0.76 - L) / max(1.0 - L, 0.05), 0.0, 0.64);
+    g = mix(g, vec3(1.0), max(uGP[idx].y, need));
+    float rim = 1.0 - smoothstep(0.0, 1.3, -d);
+    vec2 L1 = normalize(vec2(-1.0, -1.2));
+    g += rim * max(dot(n, L1), 0.0) * (0.55 + uGP[idx].z) + rim * max(dot(n, -L1), 0.0) * 0.22;
+    g = expose(s, g);
+    col = mix(col, g, clamp(0.5 - d, 0.0, 1.0));
   }
   o = vec4(col, 1.0);
 }`;
 const VS = `#version 300 es
 in vec2 a; void main() { gl_Position = vec4(a, 0.0, 1.0); }`;
-
 const canvas = document.getElementById("gl");
 const gl = canvas.getContext("webgl2", { preserveDrawingBuffer: true, antialias: false });
-function shader(type, src) {
-  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
-  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
-  return s;
-}
+function shader(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
 const prog = gl.createProgram();
 gl.attachShader(prog, shader(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, FS));
 gl.linkProgram(prog); gl.useProgram(prog);
-const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
 const aLoc = gl.getAttribLocation(prog, "a"); gl.enableVertexAttribArray(aLoc); gl.vertexAttribPointer(aLoc, 2, gl.FLOAT, false, 0, 0);
 const U = n => gl.getUniformLocation(prog, n);
@@ -412,280 +397,287 @@ const wallBase = makeWallpaper();
 [wallBase, blurred(wallBase, 18), blurred(wallBase, 46)].forEach((src, i) => {
   const tex = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, tex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
   gl.uniform1i(U(`uW${i}`), i);
 });
 gl.uniform2f(U("uRes"), 1440, 1440);
-const wallURL = wallBase.toDataURL("image/jpeg", 0.85);
+gl.uniform3f(U("uBg"), 0.91, 0.91, 0.925);
 
-// ---------------------------------------------------------------- DOM content
-const T = { body: "t body", label: "t label", title: "t title" };
-// Menu bar icon: a ring that fills from the bottom with the brightness level (Umbra's own icon).
-const gIcon = el(world, "", "width:64px;height:64px");
-gIcon.innerHTML = `<svg width="64" height="64" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6" fill="none" stroke="${LABEL}" stroke-width="1.8"/>
-  <clipPath id="lvl"><circle cx="12" cy="12" r="6.2"/></clipPath><rect id="lvlFill" x="0" y="0" width="24" height="24" fill="${LABEL}" clip-path="url(#lvl)"/></svg>`;
-const lvlFill = gIcon.querySelector("#lvlFill");
-
-// Card: header, mode picker, status, rows.
-const gHeader = el(world, `<div style="display:flex;align-items:center;gap:14px;height:100%">${svg("sun", 34, LABEL)}<span class="${T.title}" style="font-size:34px">Umbra</span></div>`);
-const gPicker = el(world, "", `border-radius:12px;background:rgba(29,29,31,0.08)`);
-const pill = el(gPicker, "", "border-radius:8px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,0.12)");
-const hover = el(gPicker, "", "border-radius:8px;background:rgba(255,255,255,0.42)");
-const segLabels = SEG.map((s, i) => el(gPicker, `<div class="${T.label}" style="font-size:20px;text-align:center;line-height:56px">${s}</div>`,
-  `left:${SEG_W * i}px;top:0;width:${SEG_W}px;height:56px`));
-const status = [
-  ["You control brightness with sliders and keys.", b(4), b(15)],
-  ["Following Built-in Display", b(15), b(16)],
-  ["Sun at 34°, target 63%", b(16), b(17)],
-].map(([s, a, z]) => ({ e: el(world, `<div class="${T.body} sec" style="font-size:22px">${s}</div>`), a, z }));
-function row(name) {
-  const g = el(world);
-  g.innerHTML = `<div class="${T.label}" style="position:absolute;left:0;top:0;font-size:24px">${name}</div>
-    <div class="${T.label} num" style="position:absolute;right:0;top:0;font-size:24px"></div>
-    <div style="position:absolute;left:0;border-radius:99px;background:rgba(29,29,31,0.12)"></div>
-    <div style="position:absolute;left:0;border-radius:99px;background:${ACCENT}"></div>
-    <div style="position:absolute;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.22)"></div>`;
-  const [, val, track, fill, knob] = g.children;
-  return { g, val, track, fill, knob };
+// ---------------------------------------------------------------- screen contents (DOM, clipped to each screen)
+const scrBox = SCR.map((s, i) => {
+  const c = el(world, "", `overflow:hidden;border-radius:${s.r}px`);
+  box(c, s.x - s.w / 2, s.y - s.h / 2, s.w, s.h);
+  const inner = el(c, "", "", "pt");                       // content in points
+  inner.style.transform = `scale(${s.w / s.pt})`;
+  inner.style.width = `${s.pt}px`; inner.style.height = `${s.h / (s.w / s.pt)}px`;
+  const black = el(c, "", "inset:0;width:100%;height:100%;background:#000;opacity:0");
+  return { c, inner, black };
+});
+function menuBar(i, active) {
+  const s = SCR[i];
+  const bar = el(scrBox[i].inner, "", `left:0;top:0;width:${s.pt}px;height:24px;background:rgba(255,255,255,0.16)`);
+  const items = ["Finder", "File", "Edit", "View", "Go", "Window", "Help"];
+  bar.innerHTML = `<div class="t" style="position:absolute;left:18px;top:4px;font-size:13px;color:#fff;opacity:${active ? 1 : 0.55};display:flex;gap:18px">
+      ${items.map((x, k) => `<span style="font-weight:${k === 0 ? 700 : 400}">${x}</span>`).join("")}</div>
+    <div class="t num" style="position:absolute;right:16px;top:4px;font-size:13px;color:#fff;opacity:${active ? 1 : 0.55};display:flex;gap:16px;align-items:center">
+      ${active ? `<span id="umbraIcon" style="width:26px;height:18px;margin-top:-1px"></span>` : ""}${icon("wifi", 16, "#fff")}<span>Fri 9:41</span></div>`;
 }
-const rowA = row("Built-in Display"), rowB = row("C27F390");
-const rowMoon = el(world);
-rowMoon.innerHTML = `<div style="position:absolute;left:0">${svg("moon", 26, LABEL)}</div>
-  <div style="position:absolute;border-radius:99px;background:rgba(29,29,31,0.12)"></div>
-  <div style="position:absolute;border-radius:99px;background:${ACCENT}"></div>
-  <div style="position:absolute;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.22)"></div>`;
-const [moonIcon, mTrack, mFill, mKnob] = rowMoon.children;
-function drawSlider(r, left, width, yTop, value, thick, stretch = 0) {
-  const h = lerp(10, 18, thick), kd = lerp(26, 30, thick);
-  const w = width + stretch, x = left + stretch * 0.3;
-  for (const e of [r.track, r.fill]) { e.style.top = `${yTop - h / 2}px`; e.style.height = `${h}px`; }
-  r.track.style.left = `${x}px`; r.track.style.width = `${w}px`;
-  r.fill.style.left = `${x}px`; r.fill.style.width = `${Math.max(h, w * value / 100)}px`;
-  r.knob.style.width = r.knob.style.height = `${kd}px`;
-  r.knob.style.left = `${x + w * value / 100 - kd / 2}px`; r.knob.style.top = `${yTop - kd / 2}px`;
+menuBar(0, true); menuBar(1, false); menuBar(2, false);
+// MacBook notch and dock.
+el(scrBox[0].inner, "", `left:${SCR[0].pt / 2 - 100}px;top:0;width:200px;height:32px;background:#0E0E10;border-radius:0 0 12px 12px`);
+{
+  const dockW = 420, s = SCR[0], ptH = s.h / (s.w / s.pt);
+  const dock = el(scrBox[0].inner, "", `left:${s.pt / 2 - dockW / 2}px;top:${ptH - 70}px;width:${dockW}px;height:62px;border-radius:20px;background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.3)`);
+  dock.innerHTML = ["#4A90E2", "#34C759", "#FF9F0A", "#AF52DE", "#FF375F", "#5AC8FA", "#8E8E93"].map((c, k) =>
+    `<div style="position:absolute;left:${14 + k * 57}px;top:9px;width:44px;height:44px;border-radius:11px;background:${c}"></div>`).join("");
 }
-
-// Brightness display pill and the key cap under it.
-const gOSD = el(world);
-gOSD.innerHTML = `<div style="position:absolute;left:0;top:0">${svg("sun", 40, LABEL)}</div>
-  <div style="position:absolute;left:64px;top:14px;height:12px;border-radius:6px;background:rgba(29,29,31,0.12)"></div>
-  <div style="position:absolute;left:64px;top:14px;height:12px;border-radius:6px;background:${ACCENT}"></div>
-  <div class="${T.title} num" style="position:absolute;right:0;top:0;font-size:32px;line-height:40px"></div>`;
-const [, osdTrack, osdFill, osdVal] = gOSD.children;
-const gKey = el(world, `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center">${svg("sun", 34, LABEL)}</div>`,
-  "border-radius:18px;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,0.12)");
-
-// Night Mode row: icon (sun that morphs to a moon), label, toggle.
-const gTog = el(world);
-gTog.innerHTML = `<svg style="position:absolute;left:0;top:0" width="44" height="44" viewBox="0 0 24 24">
-    <mask id="cres"><rect width="24" height="24" fill="#fff"/><circle id="cut" cx="20" cy="4" r="0" fill="#000"/></mask>
-    <g id="rays" stroke="${LABEL}" stroke-width="2" stroke-linecap="round">${[...Array(8)].map((_, i) => { const a = i * Math.PI / 4, c = Math.cos(a), s = Math.sin(a);
-      return `<line x1="${12 + c * 7.4}" y1="${12 + s * 7.4}" x2="${12 + c * 9.9}" y2="${12 + s * 9.9}"/>`; }).join("")}</g>
-    <circle id="disc" cx="12" cy="12" r="4.4" fill="${LABEL}" mask="url(#cres)"/></svg>
-  <div class="${T.label}" style="position:absolute;left:62px;top:0;font-size:30px;line-height:44px">Night Mode</div>`;
-const rays = gTog.querySelector("#rays"), disc = gTog.querySelector("#disc"), cut = gTog.querySelector("#cut");
-const togTrack = el(world, "", "border-radius:38px");
-const togKnob = el(world, "", "border-radius:32px;box-shadow:0 1px 3px rgba(0,0,0,0.2)");
-
-// Display tiles: mini screens show the same wallpaper, dimmed and warmed with the rest.
-function tile(name) {
-  const g = el(world);
-  g.innerHTML = `<div style="position:absolute;left:16px;top:16px;border-radius:18px;overflow:hidden;background:url(${wallURL}) center/260% no-repeat">
-      <div style="position:absolute;inset:0;background:#000"></div></div>
-    <div class="${T.label}" style="position:absolute;left:22px;font-size:25px"></div>
-    <div style="position:absolute;width:40px;height:40px;border-radius:20px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.18);display:flex;align-items:center;justify-content:center">${svg("power", 22, LABEL)}</div>`;
-  const [scr, lab, pw] = g.children; lab.textContent = name;
-  return { g, scr, dark: scr.firstElementChild, lab, pw };
+// A window on each monitor: a notes app on the LG, a photo library on the Samsung.
+function windowMock(i, x, y, w, h, kind) {
+  const win = el(scrBox[i].inner, "", `left:${x}px;top:${y}px;width:${w}px;height:${h}px;border-radius:16px;background:#fff;box-shadow:0 18px 50px rgba(0,0,0,0.3);overflow:hidden`);
+  const lights = `<div style="position:absolute;left:18px;top:18px;display:flex;gap:8px">${["#FF5F57", "#FEBC2E", "#28C840"].map(c => `<div style="width:13px;height:13px;border-radius:7px;background:${c}"></div>`).join("")}</div>`;
+  if (kind === "notes") {
+    win.innerHTML = lights + `<div style="position:absolute;left:0;top:0;width:${w * 0.28}px;height:100%;background:#F2F2F4"></div>` +
+      [...Array(6)].map((_, k) => `<div style="position:absolute;left:24px;top:${70 + k * 46}px;width:${w * 0.28 - 48}px;height:12px;border-radius:6px;background:#D9D9DE"></div>`).join("") +
+      `<div class="t" style="position:absolute;left:${w * 0.28 + 44}px;top:56px;font-size:34px;font-weight:700">Desk notes</div>` +
+      [...Array(9)].map((_, k) => `<div style="position:absolute;left:${w * 0.28 + 44}px;top:${120 + k * 36}px;width:${[0.88, 0.92, 0.7, 0.85, 0.6, 0.9, 0.76, 0.82, 0.4][k] * w * 0.62}px;height:12px;border-radius:6px;background:#E3E3E8"></div>`).join("");
+  } else {
+    const cols = ["#2BB3B1", "#7B5CFF", "#FFB38A", "#1B3A8C", "#5AC8FA", "#FF9F0A", "#34C759", "#AF52DE", "#FF375F", "#8E8E93", "#2A56C9", "#FFD60A"];
+    win.innerHTML = lights + `<div class="t" style="position:absolute;left:120px;top:14px;font-size:17px;font-weight:600">Library</div>` +
+      cols.map((c, k) => `<div style="position:absolute;left:${24 + (k % 4) * ((w - 48) / 4)}px;top:${58 + Math.floor(k / 4) * ((h - 78) / 3)}px;width:${(w - 48) / 4 - 10}px;height:${(h - 78) / 3 - 10}px;border-radius:8px;background:${c};opacity:0.85"></div>`).join("");
+  }
 }
-const tiles = [tile("Built-in"), tile("LG UltraFine"), tile("C27F390")];
+windowMock(1, 520, 150, 1500, 900, "notes");
+windowMock(2, 240, 110, 900, 470, "photos");
 
-// Siri capsule: waveform, words, then a checkmark.
-const gSiri = el(world);
-gSiri.innerHTML = `<div style="position:absolute;left:0;top:0;width:44px;height:44px;display:flex;align-items:center;gap:4px;justify-content:center">
-  ${[0, 1, 2, 3, 4].map(() => `<div style="width:5px;border-radius:3px;background:${ACCENT}"></div>`).join("")}</div>`;
-const siriBars = [...gSiri.firstElementChild.children];
-const WORDS = ["Turn", "off", "Night", "Mode"];
-const siriWords = WORDS.map(w => el(world, `<span class="${T.label}" style="font-size:30px">${w}</span>`));
-const gDone = el(world, `<div style="display:flex;align-items:center;gap:14px;height:100%">
-  <svg width="40" height="40" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="${ACCENT}"/>
-  <path id="chk" d="M7.4 12.4l3.1 3.1 6.1-6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" pathLength="1"/></svg>
-  <span class="${T.label}" style="font-size:30px">Night Mode is off</span></div>`);
-const chk = gDone.querySelector("#chk");
+// Umbra's menu bar icon: a ring that fills with the brightness level.
+document.getElementById("umbraIcon").innerHTML = `<svg width="26" height="18" viewBox="-3 0 30 24"><circle cx="12" cy="12" r="8.6" fill="none" stroke="#fff" stroke-width="2"/>
+  <clipPath id="lvl"><circle cx="12" cy="12" r="6"/></clipPath><rect id="lvlFill" x="0" y="0" width="24" height="24" fill="#fff" clip-path="url(#lvl)"/></svg>`;
+const lvlFill = document.getElementById("lvlFill");
 
-// macOS arrow pointer, in screen space so it keeps its size under camera zoom.
-const pointer = el(screenLayer, `<svg width="34" height="50" viewBox="0 0 17 25"><path d="M1.5 1.5v19.2l4.6-4.4 3 7 3.2-1.4-3-6.8h6.3z" fill="#000" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>`,
+// ---------------------------------------------------------------- Umbra menu (MenuView), in points
+const s0 = SCR[0], k0 = s0.w / s0.pt;
+const pop = el(scrBox[0].inner, "", "", "pt");
+pop.style.left = `${(POP_L - (s0.x - s0.w / 2)) / k0}px`; pop.style.top = `${(POP_T - (s0.y - s0.h / 2)) / k0}px`;
+pop.style.width = `${POP.w}px`; pop.style.transformOrigin = "80% 0";
+function popAt(xPt, yPt, html = "", css = "") { return el(pop, html, `left:${xPt}px;top:${yPt}px;${css}`); }
+popAt(12, 12, `<div style="display:flex;align-items:center;gap:6px;height:20px">${icon("sunFill", 16, YELLOW)}<span class="t" style="font-size:15px;font-weight:600">Umbra</span></div>`);
+popAt(POP.w - 12 - 16, 14, icon("gear", 16, SECOND));
+const picker = popAt(12, 42, "", `width:${POP.w - 24}px;height:26px;border-radius:8px;background:rgba(29,29,31,0.06)`);
+const pill = el(picker, "", "top:2px;height:22px;border-radius:6px;background:#fff;box-shadow:0 0.5px 1.5px rgba(0,0,0,0.14)");
+const segEls = ["Manual", "Sync", "Location", "Clock", "Sensor"].map((s, i) =>
+  el(picker, `<div class="t" style="font-size:12px;text-align:center;line-height:26px">${s}</div>`, `left:${2 + SEG_W * i}px;top:0;width:${SEG_W}px;height:26px`));
+const status = [["You control brightness with sliders and keys.", b(4), b(14)], ["Following Built-in Display. Move a slider to set an offset.", b(14), b(31)]]
+  .map(([s, a, z]) => ({ e: popAt(12, 78, `<div class="t sec" style="font-size:11px">${s}</div>`), a, z }));
+popAt(0, 101, "", `width:${POP.w}px;height:1px;background:rgba(0,0,0,0.08)`);
+function sliderRow(parent, y, sym, tint, symColor) {
+  const r = el(parent, "", `left:12px;top:${y}px;width:332px;height:22px`);
+  r.innerHTML = `<div style="position:absolute;left:0;top:2px">${icon(sym, 18, symColor ?? tint)}</div>
+    <div style="position:absolute;height:4px;border-radius:2px;background:rgba(29,29,31,0.14)"></div>
+    <div style="position:absolute;height:4px;border-radius:2px;background:${tint}"></div>
+    <div style="position:absolute;border-radius:50%;background:#fff;box-shadow:0 0.5px 2px rgba(0,0,0,0.3),0 0 0 0.5px rgba(0,0,0,0.06)"></div>
+    <div class="t num" style="position:absolute;right:0;top:4px;font-size:11px;width:30px;text-align:right"></div>`;
+  const [, track, fill, knob, val] = r.children;
+  return { r, track, fill, knob, val };
+}
+// The knob and fill never pass the track. Past the end, only the track stretches a few points (rubber band).
+function drawSlider(s, v, grab = 0, stretch = 0) {
+  const h = lerp(4, 6, grab), kd = lerp(18, 20, grab), x0 = SL_X0 - 12, w = SL_W + stretch, vv = clamp(v, 0, 100);
+  for (const e of [s.track, s.fill]) { e.style.top = `${11 - h / 2}px`; e.style.height = `${h}px`; e.style.left = `${x0}px`; }
+  s.track.style.width = `${w}px`; s.fill.style.width = `${Math.max(h, w * vv / 100)}px`;
+  s.knob.style.width = s.knob.style.height = `${kd}px`;
+  s.knob.style.left = `${x0 + clamp(w * vv / 100, kd / 2, w - kd / 2) - kd / 2}px`; s.knob.style.top = `${11 - kd / 2}px`;
+  s.val.textContent = Math.round(vv);
+}
+function card(i, name, badge, sym) {
+  const c = popAt(12, CARD_Y[i], "", `width:356px;height:${CARD_H[i]}px;border-radius:10px;background:rgba(255,255,255,0.34);box-shadow:inset 0 0 0 0.5px rgba(0,0,0,0.07)`);
+  el(c, `<div style="display:flex;align-items:center;gap:6px;height:20px">${icon(sym, 15, SECOND)}<span class="t" style="font-size:13px;font-weight:600">${name}</span>
+      <span class="t" style="font-size:10px;font-weight:500;padding:2px 6px;border-radius:8px;background:rgba(29,29,31,0.08)">${badge}</span></div>`, "left:12px;top:12px");
+  const adaptive = el(c, `<div style="width:26px;height:15px;border-radius:8px;background:${ACCENT};position:relative"><div style="position:absolute;right:1.5px;top:1.5px;width:12px;height:12px;border-radius:6px;background:#fff"></div></div>`, "left:294px;top:14.5px");
+  const power = el(c, icon("powerCircle", 18, SECOND), "left:326px;top:13px");
+  const disc = el(c, `<div class="t sec" style="font-size:11px;display:flex;align-items:center;gap:4px">${icon("chevRight", 10, SECOND)}Resolution, rotation, color, and limits</div>`, "left:12px");
+  return { c, adaptive, power, disc };
+}
+const cards = [card(0, "Built-in Display", "Apple Native", "laptop"), card(1, "LG UltraFine", "Apple Native", "display"), card(2, "C27F390", "DDC", "display")];
+const sl = [sliderRow(cards[0].c, 40, "sunFill", YELLOW), sliderRow(cards[1].c, 40, "sunFill", YELLOW), sliderRow(cards[2].c, 40, "sunFill", YELLOW)];
+el(cards[0].c, `<div style="display:flex;align-items:center;gap:8px;height:22px"><span class="t" style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;background:rgba(29,29,31,0.08)">XDR</span><span class="t sec" style="font-size:11px">Go brighter than 100%</span></div>`, "left:12px;top:70px");
+const moon = sliderRow(cards[2].c, 70, "moon", INDIGO);
+const contrast = sliderRow(cards[2].c, 70, "half", ACCENT);
+const volume = sliderRow(cards[2].c, 100, "speaker", ACCENT, SECOND);
+const input = el(cards[2].c, `<div style="display:flex;align-items:center;gap:8px">${icon("cable", 16, SECOND)}<span class="t" style="font-size:12px;display:flex;align-items:center;gap:4px;padding:3px 6px 3px 10px;border-radius:6px;background:rgba(29,29,31,0.07)">Choose input${icon("updown", 11, SECOND)}</span></div>`, "left:12px;top:130px");
+const offMsg = el(cards[2].c, `<div class="t sec" style="font-size:11px;white-space:normal;width:330px;line-height:15px">This display is off. Click the power button or press ⌃⌘7 to turn it back on.</div>`, "left:12px;top:40px");
+const divider2 = popAt(0, 0, "", `width:${POP.w}px;height:1px;background:rgba(0,0,0,0.08)`);
+const footBtn = (label, sym) => `<span class="t" style="font-size:11px;display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:6px;background:rgba(29,29,31,0.07)">${icon(sym, 13, LABEL)}${label}</span>`;
+const footer = popAt(10, 0, `<div style="display:flex;align-items:center;gap:8px;width:360px">
+  ${footBtn("FaceLight", "person")}${footBtn("XDR", "sunMax")}
+  <span class="t" style="font-size:11px;display:inline-flex;align-items:center;gap:4px">${icon("sliders", 13, LABEL)}Presets${icon("chevDown", 10, LABEL)}</span>
+  <span class="t" id="moreBtn" style="font-size:11px;display:inline-flex;align-items:center;gap:4px;padding:3px 5px;border-radius:6px">${icon("ellipsis", 13, LABEL)}More${icon("chevDown", 10, LABEL)}</span>
+  <span style="flex:1"></span>${icon("power", 14, SECOND)}</div>`);
+const moreBtnEl = footer.querySelector("#moreBtn");
+// More menu: an opaque white menu (content never sits glass on glass).
+const menu = popAt(MENU_X, 0, "", "width:210px;border-radius:10px;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,0.16),0 0 0 0.5px rgba(0,0,0,0.1);padding:6px 0");
+const menuRow = txt => `<div class="t" data-row style="font-size:13px;height:22px;line-height:22px;margin:0 5px;padding:0 10px;border-radius:5px">${txt}</div>`;
+const menuHead = t2 => `<div class="t sec" style="font-size:11px;font-weight:600;height:20px;line-height:20px;padding:0 15px">${t2}</div>`;
+menu.innerHTML = menuHead("Light") + menuRow(`<span id="nightLabel">Night Mode</span>`) + menuRow("Cleaning Mode") +
+  menuHead("Arrange screens") + menuRow("Side by side") + menuRow("Top to bottom") + menuRow("Set main display") +
+  menuHead("Power") + menuRow("Turn all displays back on") + menuRow("Sleep Mac");
+const nightRowEl = menu.querySelectorAll("[data-row]")[0], nightLabel = menu.querySelector("#nightLabel");
+
+// Umbra's on-screen display: icon, title, value, bar. It morphs to text only.
+function osd(i) {
+  const e = el(scrBox[i].inner, "", "", "pt");
+  e.innerHTML = `<div style="position:absolute;left:16px;width:228px;display:flex;align-items:center;gap:8px">
+      <span class="ic"></span><span class="t tt" style="font-size:13px;font-weight:500"></span><span style="flex:1"></span>
+      <span class="t num vv" style="font-size:12px;font-weight:500;color:${SECOND}"></span></div>
+    <div class="bar" style="position:absolute;left:16px;top:56px;width:228px;height:6px;border-radius:3px;background:rgba(29,29,31,0.12)"><div style="height:6px;border-radius:3px"></div></div>`;
+  return { e, row: e.firstElementChild, ic: e.querySelector(".ic"), tt: e.querySelector(".tt"), vv: e.querySelector(".vv"), bar: e.querySelector(".bar"), fill: e.querySelector(".bar").firstElementChild };
+}
+const osds = [osd(0), null, osd(2)];
+
+// Brightness keys under the MacBook.
+const keys = el(world, "", "");
+keys.innerHTML = [["sunMin", "F1"], ["sunMax", "F2"]].map(([s, f], k) => `<div style="position:absolute;left:${k * 96}px;top:0;width:84px;height:66px;border-radius:12px;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,0.12);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">${icon(s, 26, LABEL)}<span class="t sec" style="font-size:11px">${f}</span></div>`).join("");
+const keyEls = [...keys.children];
+
+// macOS arrow pointer in screen space, so it keeps its size under camera zoom.
+const pointer = el(screenLayer, `<svg width="30" height="44" viewBox="0 0 17 25"><path d="M1.5 1.5v19.2l4.6-4.4 3 7 3.2-1.4-3-6.8h6.3z" fill="#000" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>`,
   "transform-origin:3px 3px;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.3))");
 
 // ---------------------------------------------------------------- seek(t)
+const hexItems = ITEMS.map(it => hex(it.c));
+const OSD_PLAN = [
+  // [screen, tin, tout, kind]
+  [2, b(7) - 0.1, b(13) + 0.2, "sam"], [0, b(16) - 0.05, b(18), "keysDown"], [0, b(21) + 0.05, b(22) + 0.3, "nightOn"],
+  [0, b(24) + 0.1, b(25) + 0.2, "off"], [0, b(26) + 0.05, b(27) - 0.1, "onAgain"], [0, b(28) + 0.05, b(28) + 0.45, "nightOff"], [0, b(28) + 0.5, b(31), "keysUp"],
+];
 function seek(tIn) {
   const t = ((tIn % P) + P) % P;
-  const z = camZ(t), cx = C, cy = C;
-  const wz = 1 + (z - 1) * 0.7;
+  const z = camZ(t), cx = camX(t), cy = camY(t);
   const toS = (x, y) => [(x - cx) * z + 720, (y - cy) * z + 720];
-  world.style.transform = `translate(720px,720px) scale(${z.toFixed(5)}) translate(${-cx}px,${-cy}px)`;
+  world.style.transform = `translate(720px,720px) scale(${z.toFixed(5)}) translate(${(-cx).toFixed(3)}px,${(-cy).toFixed(3)}px)`;
 
-  // Glass shapes (screen space) for the shader.
-  const shapes = [];
-  const push = (x, y, w, h, r, tint, rim, clear = 0) => {
-    const [sx, sy] = toS(x, y);
-    shapes.push([sx, sy, Math.max(0, w * z / 2), Math.max(0, h * z / 2), r * z, tint, rim, clear]);
-  };
-  const sw = 1 + heroSwell(t);
-  const hw = heroW(t), hh = heroH(t), hx = heroX(t);
-  push(hx, C, hw * sw, hh * sw, heroR(t) * Math.min(sw, 1.06), 0.14, heroRim(t) + heroSwell(t) * 4);
-  const lw = tileLW(t), rw = tileRW(t), rsw = 1 + tileRSwell(t);
-  if (lw > 1) push(tileLX(t), C, lw, tileLH(t), TILE.r, 0.14, 0);
-  if (rw > 1) push(tileRX(t) + (rw - TILE.w) / 2 * 0, C, rw * rsw, tileRH(t) * rsw, TILE.r, 0.14, tileRSwell(t) * 4);
-  // Toggle knob lens.
-  const lg = lensGrow(t);
-  const kL = knobTrail(t), kR = knobLead(t);
-  if (lg > 0.02) {
-    const lw2 = lerp(64, 104, lg), lh2 = lerp(64, 84, lg);
-    const left = Math.min(kL, kR) - lw2 / 2, right = Math.max(kL, kR) + lw2 / 2;
-    push((left + right) / 2, C, right - left, lh2, lh2 / 2, 0.04, 0.2, 1);
+  // Hardware and screens.
+  const I = new Float32Array(NI * 4), IC = new Float32Array(NI * 4), IT = new Float32Array(NI);
+  ITEMS.forEach((it, i) => { const [sx, sy] = toS(it.x, it.y); I.set([sx, sy, it.w * z / 2, it.h * z / 2], i * 4); IC.set([...hexItems[i], it.r * z], i * 4); IT[i] = it.type; });
+  gl.uniform4fv(U("uItem"), I); gl.uniform4fv(U("uItemC"), IC); gl.uniform1fv(U("uItemT"), IT);
+  const st = SCR.map((_, i) => screenState(i, t));
+  const UV = new Float32Array(12), E = new Float32Array(9), SR = new Float32Array(12);
+  SCR.forEach((s, i) => {
+    UV.set([s.uv[0] + 0.012 * Math.sin(2 * Math.PI * t / P + i), s.uv[1] + 0.008 * Math.cos(2 * Math.PI * t / P + i), 0.92, st[i].black], i * 4);
+    E.set(st[i].e, i * 3);
+    const [sx, sy] = toS(s.x, s.y); SR.set([sx, sy, s.w * z / 2, s.h * z / 2], i * 4);
+  });
+  gl.uniform4fv(U("uScrUV"), UV); gl.uniform3fv(U("uScrE"), E); gl.uniform4fv(U("uScrR"), SR);
+
+  // Glass: the menu (hero) and the on-screen displays.
+  const G = new Float32Array(NG * 4), GP = new Float32Array(NG * 4);
+  let ng = 0;
+  const glass = (x, y, w, h, r, tint, rim, s) => { if (ng >= NG) return; const [sx, sy] = toS(x, y); G.set([sx, sy, w * z / 2, h * z / 2], ng * 4); GP.set([r * z, tint, rim, s], ng * 4); ng++; };
+  const po = clamp(popOpen(t), 0, 1);
+  const extra = sExtra(t);
+  const popH = (POP.base + extra) * K;
+  const hw = heroW(t), sw = 1 + heroSwell(t), capH = 22 * K;
+  if (hw > 0.3) {
+    const hh = lerp(capH * clamp(hw / (30 * K), 0, 1), popH, po);
+    glass(lerp(ICON_X, POP_L + POP.w * K / 2, po), lerp(ICON_Y, POP_T + popH / 2, po), hw * sw, hh * sw, lerp(capH / 2, POP.r * K, po), 0.14, heroSwell(t) * 3, 0);
   }
-  gl.uniform1i(U("uN"), shapes.length);
-  const R = new Float32Array(MAXS * 4), Pp = new Float32Array(MAXS * 4);
-  shapes.forEach((s, i) => { R.set([s[0], s[1], s[2], s[3]], i * 4); Pp.set([s[4], s[5], s[6], s[7]], i * 4); });
-  gl.uniform4fv(U("uRect"), R); gl.uniform4fv(U("uP"), Pp);
-  gl.uniform1f(U("uK"), 24 * z); gl.uniform1f(U("uZ"), z);
-  const ex = exposure(t); gl.uniform3f(U("uExpo"), ex[0], ex[1], ex[2]);
-  // Wallpaper drift: at most 12 px per bar, looping.
-  const dx = 14 * Math.sin(2 * Math.PI * t / P), dy = 10 * Math.cos(2 * Math.PI * t / P);
-  gl.uniform4f(U("uWall"), dx, dy, wz, 0);
-  // Toggle track (drawn in the glass pass). Off: gray over the glass; on: accent.
-  const sTogGL = swap(t, b(21), b(25));
-  const onGL = clamp((knobLead(t) - knobOff) / (knobOn - knobOff), 0, 1);
-  {
-    const [tx, ty] = toS(trackX, C);
-    gl.uniform4f(U("uTrack"), tx, ty, 64 * z, 38 * z);
-    gl.uniform1f(U("uTrackR"), 38 * z);
-    // Off color is the glass darkened by 14% (dark vibrant fill); on is the accent.
-    const offC = [0.62, 0.64, 0.7], accC = [10 / 255, 132 / 255, 1];
-    const c = offC.map((v, i) => lerp(v, accC[i], onGL));
-    gl.uniform4f(U("uTrackCol"), c[0], c[1], c[2], sTogGL ? sTogGL.op : 0);
+  osds.forEach(o => { if (o) o.e.style.display = "none"; });
+  for (const [i, tin, tout, kind] of OSD_PLAN) {
+    const s = swap(t, tin, tout); if (!s) continue;
+    const o = osds[i], S = SCR[i], k = S.w / S.pt, ptH = S.h / k;
+    const withBar = kind === "sam" || kind.startsWith("keys");
+    const hPt = withBar ? 86 : 52, wPt = 260;
+    const oy = ptH - 80 - 43 - (i === 0 ? 30 : 0);
+    const scale = KO / k;
+    // The glass morphs with its content; on-screen displays are drawn in the screen's points, scaled up for camera.
+    glass(S.x - S.w / 2 + (S.pt / 2) * k, S.y - S.h / 2 + oy * k, wPt * KO * (0.96 + 0.04 * s.op), hPt * KO * (0.96 + 0.04 * s.op), 18 * KO, 0.14, 0, i);
+    const e = o.e; e.style.display = "block";
+    e.style.opacity = s.op.toFixed(3); e.style.filter = s.blur > 0.05 ? `blur(${(s.blur / scale).toFixed(2)}px)` : "none";
+    e.style.transform = `translate(${S.pt / 2 - wPt * scale / 2}px, ${oy - hPt * scale / 2}px) scale(${scale})`;
+    e.style.width = `${wPt}px`; e.style.height = `${hPt}px`;
+    let sym = "sunFill", col = YELLOW, title = S.name, val = null;
+    if (kind === "sam") {
+      const zz = subzero(t);
+      if (zz > 0.5) { sym = "moon"; col = INDIGO; title = "C27F390 · Sub-zero"; val = 1 - zz / 100; } else val = bSam(t) / 100;
+    } else if (kind.startsWith("keys")) val = bOther(t) / 100;
+    else {
+      title = { nightOn: "Night Mode on", nightOff: "Night Mode off", off: "C27F390 off", onAgain: "C27F390 on" }[kind];
+      sym = kind === "nightOn" ? "moon" : kind === "nightOff" ? "sunFill" : "power";
+      col = kind === "nightOn" ? INDIGO : kind === "nightOff" ? YELLOW : ACCENT;
+    }
+    o.ic.innerHTML = icon(sym, 18, col);
+    o.tt.textContent = title;
+    o.vv.textContent = val == null ? "" : `${Math.round(val * 100)}%`;
+    on(o.bar, val != null);
+    if (val != null) { o.fill.style.width = `${(228 * clamp(val, 0.03, 1)).toFixed(1)}px`; o.fill.style.background = col; }
+    o.row.style.top = withBar ? "16px" : "16px";
   }
+  gl.uniform4fv(U("uG"), G); gl.uniform4fv(U("uGP"), GP); gl.uniform1i(U("uNG"), ng);
+  gl.uniform1f(U("uZ"), z); gl.uniform1f(U("uK"), 16 * z * K);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-  // ---- content
-  const br = brightness(t);
-  // Menu bar icon
-  const sIcon = swap(t, b(31) + 0.35, b(4));
-  if (applySwap(gIcon, sIcon)) { place(gIcon, C, C, 64, 64); lvlFill.setAttribute("y", (5.8 + 12.4 * (1 - br / 100)).toFixed(3)); }
+  // DOM screen contents follow the same exposure as the GL screens.
+  SCR.forEach((s, i) => {
+    const { lum, n, black } = st[i];
+    scrBox[i].inner.style.filter = `brightness(${lum.toFixed(3)}) sepia(${(0.38 * n).toFixed(3)}) saturate(${(1 - 0.1 * n).toFixed(3)})`;
+    scrBox[i].black.style.opacity = black.toFixed(3);
+  });
+  lvlFill.setAttribute("y", (6 + 12 * (1 - bOther(t) / 100)).toFixed(3));
 
-  // Card
-  const ch2 = heroH(t), top = cardTop(Math.max(CARD.h, Math.min(CARD.hMoon, ch2)));
-  const sCard = swap(t, b(4), b(17));
-  if (applySwap(gHeader, sCard)) place(gHeader, IN_L + 150, top + 58, 300, 44);
-  if (applySwap(gPicker, sCard)) {
-    place(gPicker, C, top + 128, IN_W, 56);
-    const L = pillL(t) - IN_L, Rr = pillR(t) - IN_L;
-    Object.assign(pill.style, { left: `${Math.min(L, Rr)}px`, top: "4px", width: `${Math.abs(Rr - L)}px`, height: "48px" });
-    // Hover highlight under the pointer.
-    const hp = px(t) - IN_L, vp = py(t) - (top + 100), hi = Math.floor(hp / SEG_W);
-    const over = vp >= 0 && vp <= 56 && hi >= 0 && hi < 5 && hi !== selSeg(t);
-    hover.style.display = over ? "block" : "none";
-    if (over) Object.assign(hover.style, { left: `${hi * SEG_W + 4}px`, top: "4px", width: `${SEG_W - 8}px`, height: "48px" });
-    segLabels.forEach((s, i) => { s.firstElementChild.style.color = i === selSeg(t) ? LABEL : SECOND; });
-  }
-  status.forEach(s => { if (applySwap(s.e, sCard && swap(t, s.a, s.z) ? { ...swap(t, s.a, s.z), op: swap(t, s.a, s.z).op * sCard.op } : null)) place(s.e, IN_L + 300, top + 190, 600, 28); });
-  const rows = [[rowA, builtIn(t), 0, 0, b(5)], [rowB, br, thickB(t), 0, b(5) + 0.08]];
-  rows.forEach(([r, v, th, , tin], i) => {
-    const s = swap(t, tin, b(17));
-    if (applySwap(r.g, s)) {
-      const y0 = top + 240 + i * 90;
-      place(r.g, C, y0 + 20, IN_W, 80);
-      r.val.textContent = Math.round(v);
-      drawSlider(r, 0, IN_W, 42, v, th);
+  // ---- Umbra menu content
+  if (show(pop, swap(t, b(4), b(31)))) {
+    const L = pillL(t), R = pillR(t);
+    Object.assign(pill.style, { left: `${Math.min(L, R) - 12}px`, width: `${Math.abs(R - L)}px` });
+    const sel = isSync(t) ? 1 : 0;
+    segEls.forEach((e, i) => { const d = e.firstElementChild; d.style.color = i === sel ? LABEL : SECOND; d.style.fontWeight = i === sel ? 600 : 400; });
+    status.forEach(s => show(s.e, swap(t, s.a, s.z)));
+    const off = clamp(-Math.min(extra, 0) / 120, 0, 1);
+    const moonH = clamp(Math.max(extra, 0) / 30, 0, 1);
+    cards[2].c.style.height = `${CARD_H[2] + extra}px`;
+    const ad = isSync(t) ? clamp(step(t - b(14) - 0.06, ...MORPH), 0, 1) : 0;
+    cards.forEach((c, i) => {
+      on(c.adaptive, ad > 0.01); c.adaptive.style.opacity = ad.toFixed(3);
+      c.disc.style.top = `${CARD_H[i] + (i === 2 ? extra : 0) - 28}px`;
+    });
+    cards[2].power.innerHTML = icon("powerCircle", 18, samOff(t) ? "#FF453A" : SECOND);
+    drawSlider(sl[0], bOther(t)); drawSlider(sl[1], bOther(t));
+    drawSlider(sl[2], bSam(t), grabS(t));
+    if (on(moon.r, moonH > 0.02 && off < 0.01)) {
+      moon.r.style.opacity = moonH.toFixed(3); moon.r.style.filter = moonH < 1 ? `blur(${(4 * (1 - moonH)).toFixed(2)}px)` : "none";
+      drawSlider(moon, subzero(t), grabZ(t), zStretch(t));
     }
-  });
-  const sMoon = swap(t, b(8) + 0.1, b(13));
-  if (applySwap(rowMoon, sMoon)) {
-    place(rowMoon, C, top + 414, IN_W, 40);
-    moonIcon.style.top = "7px";
-    drawSlider({ track: mTrack, fill: mFill, knob: mKnob }, 40, IN_W - 40, 20, subzero(t), thickZ(t), moonStretch(t));
+    contrast.r.style.top = `${70 + 30 * moonH}px`; volume.r.style.top = `${100 + 30 * moonH}px`; input.style.top = `${130 + 30 * moonH}px`;
+    drawSlider(contrast, 50); drawSlider(volume, 50);
+    [sl[2].r, contrast.r, volume.r, input, cards[2].disc].forEach(e => { e.style.opacity = (1 - off).toFixed(3); e.style.display = off > 0.99 ? "none" : "block"; });
+    offMsg.style.opacity = off.toFixed(3); offMsg.style.display = off > 0.01 ? "block" : "none";
+    const H = POP.base + extra;
+    divider2.style.top = `${H - 44}px`;
+    footer.style.top = `${H - 33}px`;
+    moreBtnEl.style.background = menuOpen(t) ? "rgba(29,29,31,0.1)" : "transparent";
+    const menuS = menuOpen(t) ? swap(t, t < b(21) ? b(19) : b(27) + 0.1, t < b(21) ? b(21) : b(28)) : null;
+    if (show(menu, menuS)) {
+      menu.style.top = `${H - 44 - 4 - 232}px`;
+      menu.style.transformOrigin = "85% 100%";
+      const hov = (t >= b(20) && t < b(21)) || (t >= b(27) + 0.35);
+      nightRowEl.style.background = hov ? ACCENT : "transparent";
+      nightRowEl.style.color = hov ? "#fff" : LABEL;
+      nightLabel.textContent = t < b(22) ? "Night Mode" : "Turn Night Mode off";
+    }
   }
 
-  // Brightness display pill + key cap
-  const sOSD = swap(t, b(17), b(21));
-  if (applySwap(gOSD, sOSD)) {
-    const w = OSD.w - 88; place(gOSD, C, C, w, 40);
-    const barW = w - 64 - 70;
-    osdTrack.style.width = `${barW}px`; osdFill.style.width = `${Math.max(12, barW * br / 100)}px`;
-    osdVal.textContent = Math.round(br);
-  }
-  const kp = keyPress(t);
-  if (applySwap(gKey, swap(t, b(17) + 0.3, b(21)), `translateY(${(kp * 5).toFixed(2)}px)`)) {
-    place(gKey, C, C + 150, 92, 76);
-    gKey.style.boxShadow = `0 ${lerp(10, 4, kp)}px ${lerp(30, 14, kp)}px rgba(0,0,0,0.12)`;
-  }
-
-  // Night Mode row
-  const sTog = swap(t, b(21), b(25));
-  const on = clamp((knobLead(t) - knobOff) / (knobOn - knobOff), 0, 1);
-  if (applySwap(gTog, sTog)) {
-    place(gTog, C - TOG.w / 2 + 40 + 180, C, 360, 44);
-    const m = clamp(moonMorph(t), 0, 1.05);
-    rays.style.opacity = (1 - Math.min(m, 1)).toFixed(3);
-    rays.style.transform = `scale(${(1 - 0.4 * Math.min(m, 1)).toFixed(3)})`; rays.style.transformOrigin = "12px 12px";
-    disc.setAttribute("r", (4.4 + 3.6 * m).toFixed(3));
-    cut.setAttribute("r", (6.4 * Math.min(m, 1)).toFixed(3));
-    cut.setAttribute("cx", (21 - 4.2 * m).toFixed(3)); cut.setAttribute("cy", (3 + 3.2 * m).toFixed(3));
-  }
-  togTrack.style.display = "none";
-  if (applySwap(togKnob, sTog)) {
-    const lgv = lensGrow(t), kx = (kL + kR) / 2;
-    place(togKnob, kx, C, 64, 64);
-    togKnob.style.background = `rgba(255,255,255,${(1 - clamp(lgv, 0, 1)).toFixed(3)})`;
-    togKnob.style.boxShadow = `0 1px 3px rgba(0,0,0,${(0.2 * (1 - clamp(lgv, 0, 1))).toFixed(3)})`;
-  }
-
-  // Tiles
-  const tileGeo = [[tileLX(t), lw, tileLH(t)], [hx, hw * sw, hh * sw], [tileRX(t), rw * rsw, tileRH(t) * rsw]];
-  const sTiles = swap(t, b(25) + 0.1, b(29));
-  tiles.forEach((tl, i) => {
-    const [x, w, h] = tileGeo[i];
-    if (!applySwap(tl.g, sTiles && w > 60 ? sTiles : null)) return;
-    place(tl.g, x, C, w, h);
-    const sw2 = w - 32;
-    Object.assign(tl.scr.style, { width: `${sw2}px`, height: `${h - 80}px` });
-    tl.dark.style.opacity = (1 - Math.min(1, ex[1] / 0.98)).toFixed(3);
-    tl.dark.style.background = i === 2 ? "#000" : "#000";
-    if (i === 2) tl.dark.style.opacity = Math.max(1 - Math.min(1, ex[1] / 0.98), clamp(blackOut(t), 0, 1)).toFixed(3);
-    // Mini screens warm with Night Mode like the real wallpaper.
-    const nm = nightOn(t);
-    tl.scr.style.filter = nm > 0.01 ? `sepia(${(0.45 * nm).toFixed(3)}) saturate(${(1 - 0.15 * nm).toFixed(3)})` : "none";
-    tl.lab.style.top = `${h - 52}px`;
-    const off = i === 2 ? clamp(blackOut(t), 0, 1) : 0;
-    tl.lab.style.opacity = (1 - off).toFixed(3);
-    const pwx = lerp(w - 56, w / 2 - 20, off);
-    tl.pw.style.left = `${pwx}px`; tl.pw.style.top = `${h - 56}px`;
-  });
-
-  // Siri
-  const sSiri = swap(t, b(29) + 0.02, b(30));
-  if (applySwap(gSiri, sSiri)) {
-    place(gSiri, C - SIRI.w / 2 + 40 + 22, C, 44, 44);
-    siriBars.forEach((bar, i) => { bar.style.height = `${(10 + 18 * Math.abs(Math.sin(t * 7.3 + i * 1.3))).toFixed(1)}px`; });
-  }
-  let wx = C - SIRI.w / 2 + 116;
-  WORDS.forEach((w, i) => {
-    const e = siriWords[i];
-    const wWidth = [66, 44, 76, 76][i];
-    if (applySwap(e, swap(t, b(29) + 0.04 + i * 0.1, b(30)))) place(e, wx + wWidth / 2, C, wWidth, 40);
-    wx += wWidth + 10;
-  });
-  if (applySwap(gDone, swap(t, b(30), b(31)))) {
-    place(gDone, C - SIRI.w / 2 + 40 + 160, C, 320, 40);
-    chk.style.strokeDasharray = "1"; chk.style.strokeDashoffset = (1 - clamp(checkDraw(t), 0, 1)).toFixed(4);
+  // Brightness keys under the MacBook (Sync mode: all three screens follow).
+  const kS = t < b(24) ? swap(t, b(15), b(18)) : swap(t, b(28) + 0.3, b(31));
+  if (show(keys, kS)) {
+    box(keys, 720 - 90, 1282, 180, 66);
+    keyEls[0].style.transform = `translateY(${(keyDown(t) * 5).toFixed(2)}px)`;
+    keyEls[1].style.transform = `translateY(${(keyUp(t) * 5).toFixed(2)}px)`;
+    keyEls[0].style.boxShadow = `0 ${lerp(10, 4, keyDown(t)).toFixed(2)}px ${lerp(30, 12, keyDown(t)).toFixed(2)}px rgba(0,0,0,0.12)`;
+    keyEls[1].style.boxShadow = `0 ${lerp(10, 4, keyUp(t)).toFixed(2)}px ${lerp(30, 12, keyUp(t)).toFixed(2)}px rgba(0,0,0,0.12)`;
   }
 
   // Pointer
   const [sx, sy] = toS(px(t), py(t));
-  const pp = pointerPress(t);
-  pointer.style.transform = `translate(${(sx - 3).toFixed(2)}px, ${(sy - 3).toFixed(2)}px) scale(${(1 - 0.1 * clamp(pp, 0, 1)).toFixed(4)})`;
-  pointer.style.transformOrigin = "3px 3px";
+  const pp = clamp(pointerPress(t), 0, 1.05);
+  pointer.style.transform = `translate(${(sx - 3).toFixed(2)}px, ${(sy - 3).toFixed(2)}px) scale(${(1 - 0.1 * pp).toFixed(4)})`;
 }
 window.seek = seek;
 window.promoReady = document.fonts.ready.then(() => { seek(0); return true; });

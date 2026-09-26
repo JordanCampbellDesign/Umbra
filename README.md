@@ -3,7 +3,7 @@
 Umbra is a free, open source menu bar app for macOS. It controls the brightness, contrast, volume, input, and power of your monitors, including external monitors over DDC on Apple Silicon.
 
 <p align="center">
-  <img src="docs/promo/umbra-loop.webp" width="560" alt="Umbra's glass controls morphing through brightness, below-zero dimming, modes, Night Mode, BlackOut, and Siri">
+  <img src="docs/promo/umbra-loop.webp" width="560" alt="A MacBook and two monitors. Umbra's menu dims the Samsung monitor below zero, switches to Sync so the brightness keys dim all three screens, turns on Night Mode, and turns the Samsung off and on with BlackOut">
   <br><sub><a href="docs/promo/umbra-loop.mp4">Watch in full quality (MP4)</a></sub>
 </p>
 
