@@ -200,6 +200,9 @@ struct AppSettings: Codable, Equatable {
     var menuIcon = "sun.max.fill"
     var showDockIcon = false
     var scrollOnIcon = true
+    /// Adaptive mode per desk setup, keyed by the set of connected external monitors.
+    var deskModes: [String: AdaptiveMode] = [:]
+    var rememberDeskModes = true
     var scrollWithModifiers = true
     var openWindowAtLaunch = false
 }

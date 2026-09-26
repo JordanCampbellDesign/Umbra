@@ -84,6 +84,9 @@ struct ModesTab: View {
                     ForEach(AdaptiveMode.allCases) { Label($0.label, systemImage: $0.symbol).tag($0) }
                 }
                 Text(help).font(.caption).foregroundStyle(.secondary)
+                Toggle("Remember the mode for each desk setup", isOn: $state.settings.rememberDeskModes)
+                Text("Umbra notices which monitors are connected. When you plug into a set of monitors again, it switches back to the mode you used there.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Sync") {
                 Picker("Follow", selection: $state.settings.syncSource) {

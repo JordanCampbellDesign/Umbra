@@ -11,6 +11,9 @@ final class AppState: ObservableObject {
         didSet {
             guard settings != oldValue else { return }
             Store.save("settings", settings)
+            if settings.mode != oldValue.mode, settings.rememberDeskModes, let key = deskKey {
+                settings.deskModes[key] = settings.mode
+            }
             if settings.mode != oldValue.mode || settings.syncSource != oldValue.syncSource || settings.syncPollSeconds != oldValue.syncPollSeconds {
                 Engine.shared.restart()
             }
@@ -55,6 +58,8 @@ final class AppState: ObservableObject {
             self?.refreshDisplays()
             GammaController.shared.reapply()
             self?.displays.forEach { $0.applyAll() }
+            // Work out the adaptive target now and spring to it, so screens don't sit at the old level after wake.
+            Engine.shared.tick(force: true)
         }
         ws.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] n in
             let app = n.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
@@ -134,10 +139,32 @@ final class AppState: ObservableObject {
         for d in displays where d.blackedOut && !result.contains(where: { $0.id == d.id }) { result.append(d) }
         result.sort { ($0.isBuiltin ? 0 : 1, $0.id) < ($1.isBuiltin ? 0 : 1, $1.id) }
         displays = result
+        applyDeskSetup()
         cancellables = []
         for d in displays {
             d.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         }
+    }
+
+    // MARK: Desk setups
+
+    /// The set of connected external monitors, for example your home desk or your office desk.
+    var deskKey: String? {
+        let ext = displays.filter { !$0.isBuiltin }.map(\.uuid).sorted()
+        return ext.isEmpty ? nil : ext.joined(separator: "+")
+    }
+
+    private var lastDeskKey: String?
+
+    /// When the monitors change, switch to the mode last used with this set of monitors.
+    private func applyDeskSetup() {
+        let key = deskKey
+        defer { lastDeskKey = key }
+        guard key != lastDeskKey, settings.rememberDeskModes, let key else { return }
+        guard let mode = settings.deskModes[key] else { settings.deskModes[key] = settings.mode; return }
+        guard mode != settings.mode else { return }
+        settings.mode = mode
+        OSD.shared.showText("\(mode.label) mode for this desk", symbol: mode.symbol)
     }
 
     // MARK: Targets

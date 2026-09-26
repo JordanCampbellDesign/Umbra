@@ -4,7 +4,9 @@ Umbra is a free menu bar app for macOS that controls monitor brightness, contras
 
 ## Build and install
 
-Umbra builds with the Swift command line tools. Xcode is not needed.
+`build.sh` uses Xcode when it's installed, which adds the Siri and Shortcuts actions. Without Xcode it builds with the Swift command line tools, with no Siri actions. After adding or removing source files, the script regenerates `Umbra.xcodeproj` from `project.yml` with XcodeGen (`brew install xcodegen`).
+
+Builds are signed with a local certificate named "Umbra Local Signing" when it's in your keychain, so macOS keeps Accessibility access across rebuilds.
 
 ```bash
 ./build.sh
@@ -43,6 +45,11 @@ Modes that need a permission (Sensor, Location) explain what it's for before mac
 - Screen arrangement: side by side, top to bottom, others above main, mirror, stop mirroring, set main, swap.
 - Presets, app presets, global hotkeys, media keys, and an on-screen display.
 - A CLI and `umbra://` links for scripts and the Shortcuts app.
+- Siri: "Turn off my Samsung with Umbra", "Lower the brightness with Umbra", "Turn on Night Mode in Umbra". The same actions appear in the Shortcuts app.
+- Scroll over the menu bar icon, or hold ⌃⌥ and scroll anywhere, to change the brightness of the screen under the pointer.
+- The menu bar icon fills with the current brightness and turns into a moon in Night Mode.
+- Umbra remembers the adaptive mode for each desk setup (each set of connected monitors).
+- Brightness fades use springs: one closed-form spring per change, so a new target mid-fade never jumps.
 
 ## Default hotkeys
 
