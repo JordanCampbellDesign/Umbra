@@ -33,11 +33,7 @@ struct MenuView: View {
                 Spacer()
                 Button(action: openSettings) { Image(systemName: "gearshape") }.buttonStyle(.borderless).help("Settings")
             }
-            Picker("", selection: Binding(get: { state.settings.mode }, set: { state.requestMode($0) })) {
-                ForEach(AdaptiveMode.allCases) { m in Label(m.label, systemImage: m.symbol).tag(m) }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+            ModePicker(selection: state.settings.mode) { state.requestMode($0) }
             ModeStatus()
         }
         .padding(12)
@@ -109,7 +105,15 @@ struct ModeStatus: View {
     let timer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        Text(text).font(.caption).foregroundStyle(.secondary).onReceive(timer) { now = $0 }
+        // The line keeps its place while its text swaps with a short blur when the mode changes.
+        ZStack(alignment: .leading) {
+            Text(text).font(.caption).foregroundStyle(.secondary)
+                .id(state.settings.mode)
+                .transition(.blurSwap)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(.umbra, value: state.settings.mode)
+        .onReceive(timer) { now = $0 }
     }
 
     private var text: String {
@@ -162,6 +166,7 @@ struct DisplayCard: View {
                 .help(display.blackedOut ? "Turn this display back on" : "BlackOut: turn this display off")
             }
 
+            Group {
             if display.blackedOut {
                 Text("This display is off. Click the power button or press ⌃⌘7 to turn it back on.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -179,11 +184,14 @@ struct DisplayCard: View {
                     }
                     inputRow
                 }
-                DisclosureGroup(isExpanded: $expanded) { more } label: {
+                DisclosureGroup(isExpanded: $expanded.animation(.umbra)) { more.transition(.blurSwap) } label: {
                     Text("Resolution, rotation, color, and limits").font(.caption).foregroundStyle(.secondary)
                 }
             }
+            }
+            .transition(.blurSwap)
         }
+        .animation(.umbra, value: display.blackedOut)
         .padding(12)
         .background(.background.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.quaternary))
@@ -204,8 +212,10 @@ struct DisplayCard: View {
                     get: { display.config.subzero * 100 },
                     set: { display.setSubzero($0 / 100) }), range: 0 ... 100, tint: .indigo)
                     .help("Dim below 0%. Drag right to make the screen darker than its lowest setting.")
+                    .transition(.blurReveal)
             }
         }
+        .animation(.umbra, value: display.config.brightness < 0.5 || display.config.subzero > 0)
     }
 
     private var xdrRow: some View {
@@ -213,13 +223,20 @@ struct DisplayCard: View {
             Toggle(isOn: Binding(get: { display.config.xdr }, set: { display.setXDR($0) })) {
                 Text("XDR").font(.system(size: 11, weight: .bold))
             }.toggleStyle(.button).controlSize(.small)
-            if display.config.xdr {
-                Slider(value: Binding(get: { display.config.xdrLevel }, set: { display.setXDRLevel($0) }), in: 0 ... 1).tint(.orange)
-                Text("\(Int(display.config.xdrLevel * 100))%").font(.caption.monospacedDigit()).frame(width: 36, alignment: .trailing)
-            } else {
-                Text("Go brighter than 100%").font(.caption).foregroundStyle(.secondary)
-                Spacer()
+            ZStack(alignment: .leading) {
+                if display.config.xdr {
+                    HStack(spacing: 6) {
+                        Slider(value: Binding(get: { display.config.xdrLevel }, set: { display.setXDRLevel($0) }), in: 0 ... 1).tint(.orange)
+                        Text("\(Int(display.config.xdrLevel * 100))%").font(.caption.monospacedDigit()).frame(width: 36, alignment: .trailing)
+                    }
+                    .transition(.blurSwap)
+                } else {
+                    Text("Go brighter than 100%").font(.caption).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .transition(.blurSwap)
+                }
             }
+            .animation(.umbra, value: display.config.xdr)
         }
         .help("XDR Brightness: go past the normal brightness limit (up to about 1600 nits)")
     }

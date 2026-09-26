@@ -82,7 +82,9 @@ final class OSDModel: ObservableObject {
 
 struct OSDView: View {
     @ObservedObject var model: OSDModel
+
     var body: some View {
+        // One rounded shape: it morphs between the text-only and slider sizes instead of being replaced.
         VStack(spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: model.symbol).font(.system(size: 18, weight: .semibold)).foregroundStyle(model.tint)
@@ -90,17 +92,24 @@ struct OSDView: View {
                 Spacer()
                 if let v = model.value { Text("\(Int((v * 100).rounded()))%").font(.system(size: 12, weight: .medium).monospacedDigit()).foregroundStyle(.secondary) }
             }
+            .id(model.title + model.symbol)
+            .transition(.blurSwap)
             if let v = model.value {
                 GeometryReader { g in
                     ZStack(alignment: .leading) {
                         Capsule().fill(.quaternary)
                         Capsule().fill(model.tint).frame(width: max(6, g.size.width * v))
                     }
-                }.frame(height: 6)
+                }
+                .frame(height: 6)
+                .transition(.blurSwap)
             }
         }
         .padding(16)
-        .frame(width: 260, height: 86)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .frame(width: 260, height: model.value == nil ? 54 : 86)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: model.value == nil ? 27 : 18, style: .continuous))
+        .animation(.umbra, value: model.value)
+        .animation(.umbra, value: model.title)
+        .frame(width: 260, height: 86, alignment: .bottom)
     }
 }

@@ -145,7 +145,7 @@ final class MediaKeys {
             }
             return
         }
-        let mask = CGEventMask(1 << 14) | CGEventMask(1 << CGEventType.keyDown.rawValue)
+        let mask = CGEventMask(1 << 14) | CGEventMask(1 << CGEventType.keyDown.rawValue) | CGEventMask(1 << CGEventType.scrollWheel.rawValue)
         guard let t = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
                                         eventsOfInterest: mask, callback: { _, type, event, _ in
                                             if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
@@ -160,8 +160,30 @@ final class MediaKeys {
         CGEvent.tapEnable(tap: t, enable: true)
     }
 
+    private var scrollAccum: Double = 0
+
+    /// Scroll over the menu bar icon, or hold ⌃⌥ and scroll anywhere, to change the brightness of the screen under the pointer.
+    private func handleScroll(_ event: CGEvent) -> Bool {
+        let s = AppState.shared.settings
+        let overIcon = s.scrollOnIcon && ((NSApp.delegate as? AppDelegate)?.statusItemScreenFrame?.contains(NSEvent.mouseLocation) ?? false)
+        let flags = event.flags
+        let chord = s.scrollWithModifiers && flags.contains(.maskControl) && flags.contains(.maskAlternate) && !flags.contains(.maskCommand)
+        guard overIcon || chord else { scrollAccum = 0; return false }
+        let continuous = event.getIntegerValueField(.scrollWheelEventIsContinuous) == 1
+        let dy = continuous ? event.getDoubleValueField(.scrollWheelEventPointDeltaAxis1) : Double(event.getIntegerValueField(.scrollWheelEventDeltaAxis1)) * 8
+        scrollAccum += dy
+        // About 8 points of trackpad travel (or one wheel notch) per quarter step.
+        while abs(scrollAccum) >= 8 {
+            let up = scrollAccum > 0
+            scrollAccum -= up ? 8 : -8
+            DispatchQueue.main.async { AppState.shared.stepBrightness(up: up, fine: true, target: .cursor) }
+        }
+        return true
+    }
+
     /// Returns true to swallow the event.
     private func handle(_ type: CGEventType, _ event: CGEvent) -> Bool {
+        if type == .scrollWheel { return handleScroll(event) }
         let s = AppState.shared.settings
         var key: Int32 = -1
         var down = false

@@ -14,7 +14,7 @@ enum ControlMethod: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-enum AdaptiveMode: String, Codable, CaseIterable, Identifiable {
+enum AdaptiveMode: String, Codable, CaseIterable, Identifiable, Sendable {
     case manual, sync, location, clock, sensor
     var id: String { rawValue }
     var label: String {
@@ -199,6 +199,8 @@ struct AppSettings: Codable, Equatable {
     var blackedOut: [UInt32] = []
     var menuIcon = "sun.max.fill"
     var showDockIcon = false
+    var scrollOnIcon = true
+    var scrollWithModifiers = true
     var openWindowAtLaunch = false
 }
 

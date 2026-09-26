@@ -35,6 +35,8 @@ struct GeneralTab: View {
             Section("Keyboard") {
                 Toggle("Brightness keys control external monitors", isOn: $state.settings.mediaKeys)
                 Toggle("Volume keys control monitor speakers when they are the sound output", isOn: $state.settings.volumeKeys)
+                Toggle("Scroll over the menu bar icon to change brightness", isOn: $state.settings.scrollOnIcon)
+                Toggle("Hold ⌃⌥ and scroll anywhere to change brightness", isOn: $state.settings.scrollWithModifiers)
                 Picker("Brightness keys adjust", selection: $state.settings.keysTarget) {
                     ForEach(KeysTarget.allCases) { Text($0.label).tag($0) }
                 }
