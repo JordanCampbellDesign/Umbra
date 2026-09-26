@@ -358,6 +358,12 @@ struct AboutTab: View {
             Section("Welcome") {
                 Button("Show the welcome screen again") { Onboarding.show() }
             }
+            if Updater.shared.available {
+                Section("Updates") {
+                    Button("Check for Updates…") { Updater.shared.checkForUpdates() }
+                    Text("Umbra checks for new versions once a day and asks before installing.").font(.caption).foregroundStyle(.secondary)
+                }
+            }
             Section("Command line") {
                 HStack {
                     Button("Install `umbra` command") { installed = CLI.install() }

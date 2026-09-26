@@ -4,6 +4,10 @@ options:
   bundleIdPrefix: design.jordancampbell
   deploymentTarget:
     macOS: "14.0"
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.6.0
 settings:
   base:
     SWIFT_VERSION: "5.0"
@@ -32,6 +36,7 @@ targets:
     dependencies:
       - target: UmbraControls
         embed: true
+      - package: Sparkle
   UmbraControls:
     type: app-extension
     platform: macOS

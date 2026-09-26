@@ -1,0 +1,23 @@
+name: Bug report
+description: Something in Umbra doesn't work as expected.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Umbra and macOS versions
+      placeholder: Umbra 1.0.0 on macOS 26.6
+    validations:
+      required: true
+  - type: textarea
+    id: displays
+    attributes:
+      label: Output of `umbra displays`
+      render: text

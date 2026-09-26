@@ -17,6 +17,7 @@ let package = Package(
                 .linkedFramework("MetalKit"),
                 .linkedFramework("CoreAudio"),
             ]
-        )
+        ),
+        .testTarget(name: "UmbraTests", dependencies: ["Umbra"], path: "Tests/UmbraTests"),
     ]
 )

@@ -41,5 +41,9 @@
 	<string>Umbra uses your location to work out sunrise and sunset for Location and Clock modes. It stays on this Mac.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Umbra uses your location to work out sunrise and sunset for Location and Clock modes. It stays on this Mac.</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/JordanCampbellDesign/Umbra/main/appcast.xml</string>
 </dict>
 </plist>

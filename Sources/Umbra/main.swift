@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.animates = true
         popover.contentViewController = NSHostingController(rootView: MenuView(openSettings: { [weak self] in self?.openSettings() }))
         AppState.shared.start()
+        _ = Updater.shared
         NSAppleEventManager.shared().setEventHandler(self, andSelector: #selector(handleURL(_:reply:)),
                                                      forEventClass: AEEventClass(kInternetEventClass), andEventID: AEEventID(kAEGetURL))
         buildMainMenu()
@@ -140,6 +141,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "About Umbra", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        if Updater.shared.available {
+            let upd = appMenu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdatesAction), keyEquivalent: "")
+            upd.target = self
+        }
         appMenu.addItem(.separator())
         let settings = appMenu.addItem(withTitle: "Settings…", action: #selector(openSettingsAction), keyEquivalent: ",")
         settings.target = self
@@ -161,6 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openSettingsAction() { openSettings() }
+    @objc private func checkForUpdatesAction() { Updater.shared.checkForUpdates() }
     @objc private func openMainWindowAction() { openMainWindow() }
 
     @objc func togglePopover() {

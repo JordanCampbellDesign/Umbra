@@ -1,0 +1,31 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tests
+        run: swift test
+
+  app:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Build Umbra.app (unsigned)
+        run: |
+          xcodegen generate
+          xcodebuild -project Umbra.xcodeproj -scheme Umbra -configuration Release \
+            -derivedDataPath .xcbuild CODE_SIGNING_ALLOWED=NO build
+      - name: Upload app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Umbra.app
+          path: .xcbuild/Build/Products/Release/Umbra.app

@@ -1,0 +1,35 @@
+name: Monitor compatibility
+description: A monitor doesn't respond to brightness, volume, input, or power.
+labels: [monitor]
+body:
+  - type: input
+    id: model
+    attributes:
+      label: Monitor model
+      placeholder: Samsung C27F390
+    validations:
+      required: true
+  - type: dropdown
+    id: connection
+    attributes:
+      label: How it connects
+      options: [HDMI, DisplayPort, USB-C or Thunderbolt, Dock or adapter, Not sure]
+    validations:
+      required: true
+  - type: input
+    id: mac
+    attributes:
+      label: Mac model and macOS version
+      placeholder: MacBook Pro M3, macOS 26.6
+  - type: textarea
+    id: works
+    attributes:
+      label: What works and what doesn't
+      description: For example, brightness works but volume doesn't.
+    validations:
+      required: true
+  - type: textarea
+    id: debug
+    attributes:
+      label: Output of `UMBRA_DEBUG=1 umbra ddc <display> 0x10`
+      render: text

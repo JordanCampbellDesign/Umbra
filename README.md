@@ -1,55 +1,60 @@
 # Umbra
 
-Umbra is a free menu bar app for macOS that controls monitor brightness, contrast, volume, input, and power. It covers the same features as Lunar.app, with no paid tier. It is written from scratch and does not use Lunar's code.
+Umbra is a free, open source menu bar app for macOS. It controls the brightness, contrast, volume, input, and power of your monitors, including external monitors over DDC on Apple Silicon.
 
-## Build and install
+<p align="center">
+  <img src="docs/images/menu.png" width="380" alt="Umbra's menu with brightness, contrast, and volume sliders for three displays">
+  &nbsp;&nbsp;
+  <img src="docs/images/welcome.png" width="440" alt="Umbra's welcome window with the detected screens and a suggested mode">
+</p>
 
-`build.sh` uses Xcode when it's installed, which adds the Siri and Shortcuts actions. Without Xcode it builds with the Swift command line tools, with no Siri actions. After adding or removing source files, the script regenerates `Umbra.xcodeproj` from `project.yml` with XcodeGen (`brew install xcodegen`).
+Umbra covers the features of Lunar.app with no paid tier. It is written from scratch and is not affiliated with Lunar or its author.
 
-Builds are signed with a local certificate named "Umbra Local Signing" when it's in your keychain, so macOS keeps Accessibility access across rebuilds.
+## Install
 
-```bash
-./build.sh
-cp -R build/Umbra.app ~/Applications/
-open ~/Applications/Umbra.app
-```
+Umbra needs macOS 14 or later on an Apple Silicon Mac. Control Center controls need macOS 26.
 
-## Main window
+1. Download `Umbra.zip` from the [latest release](https://github.com/JordanCampbellDesign/Umbra/releases/latest) and move `Umbra.app` to Applications.
+2. The app isn't notarized by Apple, so the first time you open it, right-click `Umbra.app` and choose **Open**.
+3. Umbra explains each permission before macOS asks for it. Accessibility access is only needed for the brightness and volume keys and for Cleaning Mode.
 
-Umbra lives in the menu bar. If you can't see the icon (for example, it's hidden behind the notch), open the main window. It has the same controls as the menu.
-
-- Open Umbra again from Applications, Spotlight, or the Dock.
-- Run `umbra open`, or open the link `umbra://open`.
-- If the menu bar icon is hidden when Umbra starts, the window opens by itself.
-
-Umbra shows a Dock icon while a window is open. Settings > General has options to always show the Dock icon and to open the window at every start.
-
-The first time Umbra starts, macOS asks for Accessibility access. Umbra needs it for the brightness and volume keys and for Cleaning Mode.
-
-## First launch
-
-A welcome window shows your screens with working brightness sliders, suggests an adaptive mode, and offers the brightness and volume keys. Open it again from Settings > CLI & About.
-
-Modes that need a permission (Sensor, Location) explain what it's for before macOS asks. Screen arrangement changes switch back after 15 seconds unless you click Keep.
+After that, Umbra updates itself. It checks once a day and asks before it installs.
 
 ## Features
 
-- Brightness, contrast, volume, and mute for external monitors over DDC (Apple Silicon).
-- Apple Native control for the built-in display and Apple or LG UltraFine displays.
-- Gamma (software) dimming for monitors without DDC, and a network relay option.
+**Control every screen**
+- Brightness, contrast, volume, mute, and input for external monitors over DDC.
+- Apple Native control for the built-in display and Apple displays.
+- Software dimming for monitors without DDC, and a network relay option (for example a Raspberry Pi running ddcutil).
 - Sub-zero dimming below 0%, and XDR Brightness above 100% on XDR displays.
-- Adaptive modes: Manual, Sync, Location, Clock (schedule), and Sensor.
-- BlackOut: turn a monitor off and on. Methods: disconnect, mirror and dim, or DDC power off. Auto BlackOut is optional.
-- FaceLight, Night Mode, and Cleaning Mode.
-- Input switching, resolution, rotation, and color gains per display.
-- Screen arrangement: side by side, top to bottom, others above main, mirror, stop mirroring, set main, swap.
-- Presets, app presets, global hotkeys, media keys, and an on-screen display.
-- A CLI and `umbra://` links for scripts and the Shortcuts app.
+- Resolution, rotation, and color gains per display.
+
+**Brightness that follows you**
+- Adaptive modes: Sync (follow the built-in display), Location (follow the sun), Clock (a daily schedule), and Sensor (a light sensor on your network).
+- Umbra remembers the mode for each desk setup, so your home and office desks each get their own.
+- Optional: contrast follows brightness.
+- Fades use springs. Each change of target adds one closed-form spring, so a new target mid-fade never jumps.
+
+**Turn screens off and on**
+- BlackOut turns a screen off without unplugging it. Its windows move to your other screens, and USB and charging keep working.
+- FaceLight lights your face for video calls. Night Mode dims, lowers contrast, and warms colors, then restores everything.
+- Cleaning Mode blacks out every screen and ignores the keyboard so you can wipe them.
+
+**Arrange screens**
+- Side by side, top to bottom, others above the main screen, mirror, set main, and swap.
+- Every arrangement change switches back after 15 seconds unless you click Keep.
+
+**Many ways to control it**
 - Siri: "Turn off my Samsung with Umbra", "Lower the brightness with Umbra", "Turn on Night Mode in Umbra". The same actions appear in the Shortcuts app.
+- Control Center and menu bar controls: Night Mode, FaceLight, Brighter, Dimmer, BlackOut, and All Screens On.
+- Brightness and volume keys, global hotkeys, and presets per app.
 - Scroll over the menu bar icon, or hold ⌃⌥ and scroll anywhere, to change the brightness of the screen under the pointer.
-- The menu bar icon fills with the current brightness and turns into a moon in Night Mode.
-- Umbra remembers the adaptive mode for each desk setup (each set of connected monitors).
-- Brightness fades use springs: one closed-form spring per change, so a new target mid-fade never jumps.
+- A CLI and `umbra://` links.
+- If the menu bar icon is hidden (for example behind the notch), open Umbra again from Applications to get the main window.
+
+<p align="center">
+  <img src="docs/images/perm-sensor.png" width="420" alt="Umbra explains why Sensor mode needs Local Network access before macOS asks">
+</p>
 
 ## Default hotkeys
 
@@ -59,20 +64,20 @@ These match Lunar's defaults where Lunar has the same action.
 |---|---|
 | Brightness 0%, 25%, 50%, 75%, 100% | ⌃⌘0 to ⌃⌘4 |
 | FaceLight | ⌃⌘5 |
-| BlackOut display under cursor | ⌃⌘6 |
+| BlackOut the screen under the pointer | ⌃⌘6 |
 | BlackOut without mirroring | ⌃⇧⌘6 |
 | Power off (DDC standby) | ⌃⌥⌘6 |
-| BlackOut all other displays | ⌃⌥⇧⌘6 |
-| Turn all displays back on | ⌃⌘7 |
+| BlackOut all other screens | ⌃⌥⇧⌘6 |
+| Turn all screens back on | ⌃⌘7 |
 | Next adaptive mode | ⌃⌥⌘L |
-| Open menu | ⌥⇧⌘L |
+| Open the menu | ⌥⇧⌘L |
 | Night Mode | ⌃⌥⌘N |
 
 Change any of them in Settings > Hotkeys.
 
 ## CLI
 
-Run `build/Umbra.app/Contents/MacOS/Umbra help` for the full list. Settings > CLI & About can install an `umbra` command on your PATH.
+Settings > CLI & About installs an `umbra` command. Run `umbra help` for the full list.
 
 ```bash
 umbra displays
@@ -82,10 +87,40 @@ umbra night toggle
 umbra arrange horizontal
 ```
 
-When the app is open, the CLI sends each command to the app and prints its answer.
+`<display>` is an index from `umbra displays`, part of a name, `all`, or `cursor`. When the app is open, the CLI sends each command to the app and prints its answer.
 
-## Notes
+## Build from source
 
-- Some monitors answer DDC reads with noise (the Samsung C27F390 over HDMI does). Umbra does not need reads. It remembers the last value it wrote, like Lunar. Turn on "Read values from monitor at startup" in Settings > Displays for monitors that answer reads correctly.
-- `umbra render <folder>` saves PNG images of the menu and each Settings tab. Use it to check the UI without opening the app.
-- Not included: HDR toggle, Sidecar, and native Shortcuts actions. Use `umbra://` links or the CLI from Shortcuts instead.
+```bash
+brew install xcodegen
+git clone https://github.com/JordanCampbellDesign/Umbra.git
+cd Umbra
+./build.sh
+cp -R build/Umbra.app ~/Applications/
+```
+
+`build.sh` builds the Xcode project when Xcode is installed. Without Xcode it builds the Swift package, which has no Siri actions, controls, or updates. See [CONTRIBUTING.md](CONTRIBUTING.md) for signing and tests.
+
+## How it works
+
+Umbra uses private macOS frameworks, loaded at runtime:
+- `IOAVService` to send DDC commands to external monitors on Apple Silicon.
+- `DisplayServices` for Apple Native brightness.
+- `SkyLight` to disconnect a screen for BlackOut.
+- `MonitorPanel` for rotation.
+
+Because of this, Umbra can't be on the Mac App Store, and a future macOS update could break a feature until Umbra is updated.
+
+Some monitors answer DDC reads with noise. Umbra doesn't need reads: it remembers the last value it sent, like Lunar does. Turn on "Read values from monitor at startup" in Settings > Displays for monitors that answer reads correctly.
+
+## Privacy and security
+
+Umbra has no analytics and sends nothing to the internet, apart from checking GitHub for updates. See [SECURITY.md](SECURITY.md) for how the CLI, links, and controls are limited.
+
+## Credits
+
+Thanks to [Lunar](https://lunar.fyi), [MonitorControl](https://github.com/MonitorControl/MonitorControl), and [m1ddc](https://github.com/waydabber/m1ddc) for showing what's possible with DDC on the Mac, and to [Sparkle](https://sparkle-project.org) for updates.
+
+## License
+
+[MIT](LICENSE)
