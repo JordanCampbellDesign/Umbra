@@ -7,3 +7,4 @@ DerivedData/
 .xcbuild/
 .xcbuild.log
 releases/
+.venv-dmg/
