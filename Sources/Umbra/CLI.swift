@@ -3,8 +3,8 @@ import Foundation
 
 /// `umbra` command line tool. The same binary runs as the CLI when started with arguments.
 enum CLI {
-    static let notification = Notification.Name("com.umbra.cli")
-    static let replyNotification = Notification.Name("com.umbra.cli.reply")
+    static let notification = Notification.Name("design.jordancampbell.umbra.cli")
+    static let replyNotification = Notification.Name("design.jordancampbell.umbra.cli.reply")
 
     static let usage = """
     Usage: umbra <command> [args]
@@ -38,14 +38,14 @@ enum CLI {
     static func main(_ args: [String]) -> Int32 {
         if args.first == "help" || args.first == "--help" || args.isEmpty { print(usage); return 0 }
         if args.first == "render" { return Render.run(args.count > 1 ? args[1] : "renders") }
-        let running = NSRunningApplication.runningApplications(withBundleIdentifier: "com.umbra.app").contains { $0.processIdentifier != getpid() }
+        let running = NSRunningApplication.runningApplications(withBundleIdentifier: AppInfo.bundleID).contains { $0.processIdentifier != getpid() }
         let readOnly = ["displays", "get"].contains(args[0]) || (args[0] == "ddc" && args.count == 3)
         let known = ["displays", "get", "set", "ddc", "blackout", "facelight", "xdr", "mode", "preset", "gamma",
-                     "reset-colors", "power", "open", "explain", "menutest", "night", "clean", "sleep", "mirror", "main", "swap", "arrange"]
+                     "reset-colors", "power", "open", "night", "clean", "sleep", "mirror", "main", "swap", "arrange"]
         guard known.contains(args[0]) else { print("error: unknown command \(args[0])\n\n" + usage); return 1 }
         if args[0] == "open" {
             // Launching or reopening the app shows its main window.
-            guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.umbra.app") else { print("error: Umbra.app not found"); return 1 }
+            guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: AppInfo.bundleID) else { print("error: Umbra.app not found"); return 1 }
             let cfg = NSWorkspace.OpenConfiguration()
             cfg.arguments = ["--window"]
             cfg.activates = true
@@ -64,7 +64,8 @@ enum CLI {
             let obs = center.addObserver(forName: replyNotification, object: id, queue: .main) { n in
                 answer = n.userInfo?["out"] as? String
             }
-            center.postNotificationName(notification, object: nil, userInfo: ["args": args, "id": id], deliverImmediately: true)
+            guard let token = CLIToken.read() else { print("error: can't read Umbra's CLI token. Open Umbra once, then try again."); return 1 }
+            center.postNotificationName(notification, object: nil, userInfo: ["args": args, "id": id, "token": token], deliverImmediately: true)
             let deadline = Date().addingTimeInterval(readOnly && args[0] == "ddc" ? 8 : 3)
             while answer == nil, Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
             center.removeObserver(obs)
@@ -216,31 +217,6 @@ enum CLI {
             return "ok"
 
         case "clean": CleaningMode.shared.start(); return "ok"
-        case "menutest":
-            // Tries each standard DDC value for "OSD / button control" (VCP 0xCA), 8 seconds each, then turns the menu back on.
-            guard args.count >= 2, let d = resolve(args[1]).first else { return "error: menutest <display>" }
-            let values: [UInt16] = [0x0001, 0x0101, 0x0201, 0x0301]
-            for (i, v) in values.enumerated() {
-                DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 8) {
-                    d.sendRaw(code: 0xCA, value: v)
-                    OSD.shared.showText("Menu test \(i + 1) of \(values.count)", symbol: "menubar.rectangle", on: d, seconds: 7)
-                }
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(values.count) * 8) {
-                d.sendRaw(code: 0xCA, value: 0x0002)
-                OSD.shared.showText("Menu test done", symbol: "checkmark.circle", on: d, seconds: 3)
-            }
-            return "Watching \(d.name) for \(values.count * 8) seconds. Note the step number where its menu disappears."
-        case "explain":
-            // Dev helper: open a permission explainer without changing any setting.
-            let content: Permissions.Content
-            switch args.count > 1 ? args[1] : "keys" {
-            case "location": content = Permissions.location(denied: false)
-            case "sensor": content = Permissions.sensor()
-            default: content = Permissions.accessibility(forCleaning: false)
-            }
-            Permissions.present(content) { choice, _ in NSLog("Umbra explainer choice: \(choice)") }
-            return "ok"
         case "open":
             guard let delegate = NSApp.delegate as? AppDelegate else { return "error: Umbra is not running" }
             delegate.openMainWindow()
@@ -272,15 +248,24 @@ enum CLI {
     }
 
     /// Handle umbra:// links, for example umbra://set?display=all&brightness=40 or umbra://preset/Night.
+    /// Commands a `umbra://` link may run. Links can come from web pages, so anything that turns screens off,
+    /// rearranges them, blocks the keyboard, or sleeps the Mac is left out.
+    static let linkCommands: Set<String> = ["set", "preset", "night", "facelight", "xdr", "mode", "open", "reset-colors"]
+
     static func handle(url: URL) {
-        guard let host = url.host else { return }
+        guard let host = url.host, linkCommands.contains(host) else {
+            OSD.shared.showText("Umbra ignored a link it doesn't allow", symbol: "hand.raised")
+            return
+        }
         let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
         let q = Dictionary((comps?.queryItems ?? []).map { ($0.name, $0.value ?? "") }, uniquingKeysWith: { a, _ in a })
         let path = url.pathComponents.filter { $0 != "/" }
         switch host {
         case "set":
             let d = q["display"] ?? "all"
-            for (k, v) in q where k != "display" { runInApp(["set", d, k, v]) }
+            for (k, v) in q where k != "display" && ["brightness", "contrast", "volume", "mute", "subzero"].contains(k) {
+                runInApp(["set", d, k, v])
+            }
         default:
             runInApp([host] + path)
         }

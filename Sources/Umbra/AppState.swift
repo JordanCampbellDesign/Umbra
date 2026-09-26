@@ -34,6 +34,7 @@ final class AppState: ObservableObject {
     private var cancellables: Set<AnyCancellable> = []
 
     private init() {
+        AppInfo.migrateLegacyDefaults()
         settings = Store.loadMerged("settings", fallback: AppSettings())
         // Older builds polled a placeholder sensor address, which made macOS ask for Local Network access for no reason.
         if !settings.sensorConfirmed, settings.sensorURL == "http://umbra-sensor.local/lux" { settings.sensorURL = "" }
@@ -46,6 +47,7 @@ final class AppState: ObservableObject {
     // MARK: Lifecycle
 
     func start() {
+        CLIToken.ensure()
         restoreStaleBlackOuts()
         refreshDisplays()
         CGDisplayRegisterReconfigurationCallback({ _, flags, _ in
@@ -71,7 +73,9 @@ final class AppState: ObservableObject {
         // macOS can reset gamma tables on its own; put ours back every few seconds.
         Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { _ in GammaController.shared.reapply() }
         DistributedNotificationCenter.default().addObserver(forName: CLI.notification, object: nil, queue: .main) { n in
-            guard let args = n.userInfo?["args"] as? [String] else { return }
+            // Only the CLI knows the token, so other apps can't send commands.
+            guard let args = n.userInfo?["args"] as? [String], let token = n.userInfo?["token"] as? String,
+                  token == CLIToken.ensure() else { return }
             let out = CLI.runInApp(args)
             if let id = n.userInfo?["id"] as? String {
                 DistributedNotificationCenter.default().postNotificationName(CLI.replyNotification, object: id, userInfo: ["out": out], deliverImmediately: true)

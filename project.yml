@@ -1,7 +1,7 @@
 # Generates Umbra.xcodeproj with XcodeGen: run `xcodegen` after adding or removing files.
 name: Umbra
 options:
-  bundleIdPrefix: com.umbra
+  bundleIdPrefix: design.jordancampbell
   deploymentTarget:
     macOS: "14.0"
 settings:
@@ -19,7 +19,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: Umbra
-        PRODUCT_BUNDLE_IDENTIFIER: com.umbra.app
+        PRODUCT_BUNDLE_IDENTIFIER: design.jordancampbell.umbra
         INFOPLIST_FILE: Resources/Info.plist
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_STYLE: Manual
