@@ -85,6 +85,13 @@ struct ModesTab: View {
                 }
                 Text(help).font(.caption).foregroundStyle(.secondary)
                 Toggle("Remember the mode for each desk setup", isOn: $state.settings.rememberDeskModes)
+                Toggle("Contrast follows brightness", isOn: $state.settings.contrastFollowsBrightness)
+                if state.settings.contrastFollowsBrightness {
+                    Slider(value: $state.settings.followContrastMin, in: 0 ... 100) { Text("Contrast at 0% brightness: \(Int(state.settings.followContrastMin))") }
+                    Slider(value: $state.settings.followContrastMax, in: 0 ... 100) { Text("Contrast at 100% brightness: \(Int(state.settings.followContrastMax))") }
+                    Text("Applies to DDC monitors while Sync, Location, or Sensor mode changes brightness. Clock mode uses the contrast in its schedule.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 Text("Umbra notices which monitors are connected. When you plug into a set of monitors again, it switches back to the mode you used there.")
                     .font(.caption).foregroundStyle(.secondary)
             }

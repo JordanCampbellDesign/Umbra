@@ -27,7 +27,17 @@ final class Engine: NSObject, CLLocationManagerDelegate {
         case .location, .clock: interval = 30
         }
         tick(force: true)
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in self?.tick(force: false) }
+        let t = Timer(timeInterval: interval, repeats: true) { [weak self] _ in self?.tick(force: false) }
+        // Slack lets macOS group this wake-up with other work, which saves energy.
+        t.tolerance = interval * 0.2
+        RunLoop.main.add(t, forMode: .common)
+        timer = t
+    }
+
+    /// Stop the timers, for example while the screens are asleep. `restart()` starts them again.
+    func suspend() {
+        timer?.invalidate()
+        timer = nil
     }
 
     private func targetDisplays(excluding source: Display? = nil) -> [Display] {
@@ -178,7 +188,9 @@ final class Engine: NSObject, CLLocationManagerDelegate {
         targets[d.uuid] = brightness
         let b = max(0, min(100, brightness + d.config.syncOffset))
         if abs(d.config.brightness - b) >= 0.5 { d.setBrightness(b, animated: animated) }
-        if let c = contrast, d.hasHardwareControls, abs(d.config.contrast - c) >= 0.5 { d.setContrast(c) }
+        // When the mode gives no contrast, it can follow brightness: a little lower in the dark, like Lunar does.
+        let c = contrast ?? (settings.contrastFollowsBrightness ? settings.followContrastMin + (settings.followContrastMax - settings.followContrastMin) * b / 100 : nil)
+        if let c, d.hasHardwareControls, abs(d.config.contrast - c) >= 0.5 { d.setContrast(c) }
     }
 
     /// Called when the user moves a slider while an adaptive mode runs: learn the offset for next time.

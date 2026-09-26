@@ -16,6 +16,20 @@ final class GammaController {
 
     private var originals: [CGDirectDisplayID: ([CGGammaValue], [CGGammaValue], [CGGammaValue])] = [:]
     private var states: [CGDirectDisplayID: State] = [:]
+    private var keeper: Timer?
+
+    /// macOS can reset gamma tables on its own. Put ours back every few seconds, but only while we have changed some.
+    private func updateKeeper() {
+        if states.isEmpty {
+            keeper?.invalidate()
+            keeper = nil
+        } else if keeper == nil {
+            let t = Timer(timeInterval: 5, repeats: true) { _ in GammaController.shared.reapply() }
+            t.tolerance = 1.5
+            RunLoop.main.add(t, forMode: .common)
+            keeper = t
+        }
+    }
 
     private func original(_ id: CGDirectDisplayID) -> ([CGGammaValue], [CGGammaValue], [CGGammaValue]) {
         if let o = originals[id] { return o }
@@ -39,11 +53,13 @@ final class GammaController {
         if state.isIdentity {
             states[id] = nil
             restoreAll()
+            updateKeeper()
             return
         }
         _ = original(id)
         states[id] = state
         apply(id)
+        updateKeeper()
     }
 
     func state(_ id: CGDirectDisplayID) -> State { states[id] ?? State() }

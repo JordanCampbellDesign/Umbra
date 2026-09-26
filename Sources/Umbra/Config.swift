@@ -203,6 +203,9 @@ struct AppSettings: Codable, Equatable {
     /// Adaptive mode per desk setup, keyed by the set of connected external monitors.
     var deskModes: [String: AdaptiveMode] = [:]
     var rememberDeskModes = true
+    var contrastFollowsBrightness = false
+    var followContrastMin: Double = 45
+    var followContrastMax: Double = 75
     var scrollWithModifiers = true
     var openWindowAtLaunch = false
 }

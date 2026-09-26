@@ -63,6 +63,9 @@ final class AppState: ObservableObject {
             // Work out the adaptive target now and spring to it, so screens don't sit at the old level after wake.
             Engine.shared.tick(force: true)
         }
+        // Nothing to adjust while the screens are asleep, so stop the adaptive timers until they wake.
+        ws.addObserver(forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main) { _ in Engine.shared.suspend() }
+        ws.addObserver(forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main) { _ in Engine.shared.restart() }
         ws.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] n in
             let app = n.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
             self?.appActivated(app?.bundleIdentifier)
@@ -70,8 +73,6 @@ final class AppState: ObservableObject {
         HotkeyCenter.shared.register(settings.hotkeys)
         MediaKeys.shared.start()
         Engine.shared.restart()
-        // macOS can reset gamma tables on its own; put ours back every few seconds.
-        Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { _ in GammaController.shared.reapply() }
         DistributedNotificationCenter.default().addObserver(forName: CLI.notification, object: nil, queue: .main) { n in
             // Only the CLI knows the token, so other apps can't send commands.
             guard let args = n.userInfo?["args"] as? [String], let token = n.userInfo?["token"] as? String,
