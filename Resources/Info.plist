@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Umbra</string>
+	<key>CFBundleExecutable</key>
+	<string>Umbra</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.umbra.app</string>
+	<key>CFBundleName</key>
+	<string>Umbra</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.umbra.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>umbra</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Umbra connects to the light sensor address you enter for Sensor mode. It does not scan your network.</string>
+	<key>NSLocationUsageDescription</key>
+	<string>Umbra uses your location to work out sunrise and sunset for Location and Clock modes. It stays on this Mac.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Umbra uses your location to work out sunrise and sunset for Location and Clock modes. It stays on this Mac.</string>
+</dict>
+</plist>
