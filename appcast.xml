@@ -3,13 +3,13 @@
     <channel>
         <title>Umbra</title>
         <item>
-            <title>1.0.1</title>
-            <pubDate>Sun, 27 Sep 2026 02:17:58 -0400</pubDate>
-            <sparkle:version>3</sparkle:version>
-            <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
+            <title>1.0.2</title>
+            <pubDate>Sun, 27 Sep 2026 11:42:04 -0400</pubDate>
+            <sparkle:version>4</sparkle:version>
+            <sparkle:shortVersionString>1.0.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/JordanCampbellDesign/Umbra/releases/download/v1.0.1/Umbra-1.0.1.dmg" length="999457" type="application/octet-stream" sparkle:edSignature="xfU/oKpAQmK8vLZGqiYjq94wZTftbDbLMnNtvYayG+X2Rdz9Nlo6UAjy+8EkEpsZknXS5ZpaRaXn7J0UP8WBCQ=="/>
+            <enclosure url="https://github.com/JordanCampbellDesign/Umbra/releases/download/v1.0.2/Umbra-1.0.2.dmg" length="1044642" type="application/octet-stream" sparkle:edSignature="1pQyl8lNcJCV5RlkUF8y2docWJ3BWF/20ejXuRE7/zSMwNSHO7qWnbDcrAzJts/THNho2zpq/3k5REuzOnYrDQ=="/>
         </item>
     </channel>
 </rss>
