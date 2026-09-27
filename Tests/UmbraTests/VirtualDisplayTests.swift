@@ -101,6 +101,39 @@ final class VirtualDisplayTests: XCTestCase {
         XCTAssertFalse(d.blackedOut)
     }
 
+    /// The whole DDC path on a real macOS screen: a virtual screen with a simulated monitor plugged in as its
+    /// DDC link. Umbra learns the monitor's 0-255 range, then the slider, Night Mode, and DDC power all reach it.
+    func testDDCMonitorOnAVirtualScreen() throws {
+        let d = try make("Umbra Test DDC", vendor: 0x4C2D, product: 0x0D47, serial: 11)
+        var p = MonitorProfile(name: "virtual Samsung", controls: ["0x10": [128, 255], "0x12": [128, 255], "0x62": [64, 255], "0xD6": [1, 5]])
+        p.minGapMicros = 20_000
+        let mon = SimulatedMonitor(p)
+        d.attach(AVLink(transport: mon, name: "virtual Samsung"))
+        XCTAssertEqual(d.method, .ddc)
+        func cur(_ code: UInt8) -> UInt16 { mon.values[code]?.cur ?? 0 }
+
+        // The range probe runs in the background; once it's done, 40% lands at 40% of 255.
+        waitFor("40% brightness on the 0-255 scale", timeout: 8) { d.setBrightness(40); return cur(0x10) == 102 }
+
+        // A slider drag ends on the slider's value even though the firmware ignores commands 20 ms apart.
+        for v in stride(from: 10.0, through: 90.0, by: 5) { d.setBrightness(v) }
+        waitFor("the drag's final value (90%)", timeout: 5) { cur(0x10) == 230 }
+
+        // Night Mode acts on every display Umbra knows, so limit Umbra to the test screen for this part.
+        let everything = AppState.shared.displays
+        AppState.shared.displays = [d]
+        defer { AppState.shared.displays = everything }
+        NightMode.shared.set(true)
+        waitFor("Night Mode to dim over DDC", timeout: 5) { cur(0x10) == 51 && cur(0x12) <= 102 }
+        NightMode.shared.set(false)
+        waitFor("Night Mode off to restore", timeout: 5) { cur(0x10) == 230 }
+
+        XCTAssertTrue(AppState.shared.setBlackOut(d, true, method: .ddcPower))
+        waitFor("DDC standby", timeout: 5) { cur(0xD6) == 5 }
+        XCTAssertTrue(AppState.shared.setBlackOut(d, false, method: .ddcPower))
+        waitFor("DDC power on", timeout: 5) { cur(0xD6) == 1 }
+    }
+
     func testSwapThenUndoRestoresTheArrangement() throws {
         let a = try make("Umbra Test A", product: 0xA0B2, serial: 9)
         let b = try make("Umbra Test B", product: 0xA0B3, serial: 10)

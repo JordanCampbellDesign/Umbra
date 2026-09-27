@@ -80,7 +80,8 @@ The workflow signs with the same certificate as your local builds, so macOS keep
 
 It only touches the screens it creates. It keeps the displays awake while it runs, because macOS postpones removing virtual screens while displays sleep, and it runs each test in its own process, because after a disconnect macOS can hold a virtual screen until the process exits. These tests found that Umbra gave unrelated screens another monitor's DDC link; links now need a real match unless the pairing is certain.
 
-## Not simulated
+It also runs the whole DDC path on a real macOS screen: a virtual screen with a simulated monitor plugged in as its DDC link. Umbra learns the monitor's 0-255 range, and the slider, a fast drag, Night Mode, and DDC power all reach it.
 
-- **Real DDC timing.** The simulator doesn't model the wire delays monitors need; tests run with `DDC.waitScale = 0`.
-- **DDC on virtual screens.** Virtual screens have no DDC link, so DDC is covered by the monitor simulator and zoo instead.
+## Timing
+
+Real monitors need time. The simulator can model monitors that answer slowly (reading too early returns zeros) and firmware that ignores commands sent too close together. A virtual clock stands in for real waits, so these tests run instantly and exactly. They showed that a fast slider drag could leave slow firmware on an older value than the slider shows; Umbra now re-sends the final value 150 ms after a burst. The zoo includes these timing traits too.

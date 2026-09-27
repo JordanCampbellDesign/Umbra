@@ -10,7 +10,7 @@ was_running=$(pgrep -x Umbra >/dev/null && echo yes || echo no)
 pkill -x Umbra || true
 swift build --build-tests >/dev/null 2>&1
 status=0
-for t in testDetectsANewMonitorWithItsBrand testSoftwareDimmingChangesTheScreen testBlackOutDisconnectsAndRestores testSwapThenUndoRestoresTheArrangement; do
+for t in testDetectsANewMonitorWithItsBrand testSoftwareDimmingChangesTheScreen testBlackOutDisconnectsAndRestores testDDCMonitorOnAVirtualScreen testSwapThenUndoRestoresTheArrangement; do
   if UMBRA_VIRTUAL_DISPLAYS=1 caffeinate -d -u swift test --skip-build --filter "VirtualDisplayTests/$t" > /tmp/umbra-vd-$t.log 2>&1; then
     echo "PASS  $t"
   else

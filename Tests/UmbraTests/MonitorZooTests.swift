@@ -22,20 +22,23 @@ enum MonitorZoo {
             p.dropWrites = pick([(0.0, 0.7), (0.1, 0.2), (0.3, 0.1)])
             p.writeErrors = pick([(0.0, 0.85), (0.05, 0.1), (0.2, 0.05)])
             if next() < 0.05 { p.unsupported = ["0x12"] }                                  // no DDC contrast
+            p.replyDelayMicros = pick([(0, 0.6), (30_000, 0.15), (60_000, 0.1), (100_000, 0.1), (200_000, 0.05)])
+            p.minGapMicros = pick([(0, 0.7), (20_000, 0.15), (50_000, 0.1), (100_000, 0.05)])
             return p
         }
     }
 }
 
 final class MonitorZooTests: XCTestCase {
-    override func setUp() { DDC.waitScale = 0 }
-    override func tearDown() { DDC.waitScale = 1 }
+    var clock: VirtualClock!
+    override func setUp() { clock = VirtualClock(); DDC.clock = clock }
+    override func tearDown() { DDC.clock = RealClock() }
 
     func testZoo() {
         let zoo = MonitorZoo.generate(count: 2000)
         var fullRange = 0, noRangeFallback = 0
         for (i, profile) in zoo.enumerated() {
-            let mon = SimulatedMonitor(profile, seed: UInt64(i) + 7)
+            let mon = SimulatedMonitor(profile, seed: UInt64(i) + 7, clock: clock)
             let link = AVLink(transport: mon, name: profile.name)
 
             // What Umbra does when a monitor connects: learn each control's range.
@@ -53,7 +56,11 @@ final class MonitorZooTests: XCTestCase {
                 }
                 let assumedMax = found[vcp] ?? 100
                 let value = DDC.hardwareValue(percent: 37, max: assumedMax)
-                for _ in 0 ..< 3 where mon.values[vcp.rawValue]?.cur != min(value, actual.max) { DDC.write(link, vcp, value) }
+                // What Display does: write, and after a burst re-send the final value once the monitor settles.
+                for _ in 0 ..< 3 where mon.values[vcp.rawValue]?.cur != min(value, actual.max) {
+                    DDC.write(link, vcp, value)
+                    DDC.settle(link, finals: [vcp.rawValue: value])
+                }
                 let landed = mon.values[vcp.rawValue]!.cur
                 XCTAssertEqual(landed, min(value, actual.max), "\(profile.name): \(vcp) write didn't land")
                 if found[vcp] != nil {

@@ -4,8 +4,8 @@ import XCTest
 /// Every profile in Monitors/ must pass these. A monitor someone reports becomes a new profile here,
 /// and a fix for it has to keep all the other profiles passing.
 final class DDCSimulatorTests: XCTestCase {
-    override func setUp() { DDC.waitScale = 0 }
-    override func tearDown() { DDC.waitScale = 1 }
+    override func setUp() { DDC.clock = VirtualClock() }
+    override func tearDown() { DDC.clock = RealClock() }
 
     func testPacketsCarryValidChecksums() {
         let mon = SimulatedMonitor(MonitorProfile(name: "strict", controls: ["0x10": [0, 100]]))

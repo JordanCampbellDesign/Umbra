@@ -61,6 +61,18 @@ enum InputSource: UInt16, CaseIterable, Identifiable {
     }
 }
 
+/// Time for DDC waits. The real clock sleeps; tests use a virtual clock that just moves time forward,
+/// so the monitor simulator can model monitors that need time without the tests actually waiting.
+protocol DDCClock: AnyObject {
+    var nowMicros: UInt64 { get }
+    func sleep(_ micros: Int)
+}
+
+final class RealClock: DDCClock {
+    var nowMicros: UInt64 { UInt64(DispatchTime.now().uptimeNanoseconds / 1000) }
+    func sleep(_ micros: Int) { if micros > 0 { usleep(useconds_t(micros)) } }
+}
+
 /// Sends and receives the bytes of one DDC/CI conversation. The real one talks to a monitor over IOAVService;
 /// tests use a simulated monitor (Tests/UmbraTests/SimulatedMonitor.swift).
 protocol DDCTransport {
@@ -113,9 +125,21 @@ final class AVLink {
 enum DDC {
     static let address: UInt32 = 0x37
     static let subAddress: UInt32 = 0x51
-    /// Scales the waits between DDC messages. Real monitors need them; tests set this to 0.
-    static var waitScale: Double = 1
-    private static func wait(_ micros: Int) { if waitScale > 0 { usleep(useconds_t(Double(micros) * waitScale)) } }
+    /// The waits between DDC messages. Real monitors need them; tests swap in a virtual clock.
+    static var clock: DDCClock = RealClock()
+    private static func wait(_ micros: Int) { clock.sleep(micros) }
+
+    /// How long to wait after a burst of writes (for example a slider drag) before re-sending the final values.
+    /// Some monitors ignore a command that arrives too soon after the last one, which would leave the monitor
+    /// at an earlier value than the slider shows.
+    static let settleMicros = 150_000
+
+    /// After a burst, wait, then send each control's final value once more. Called by Display after a flush.
+    static func settle(_ link: AVLink, finals: [UInt8: UInt16]) {
+        guard !finals.isEmpty else { return }
+        wait(settleMicros)
+        for (code, value) in finals.sorted(by: { $0.key < $1.key }) { write(link, code: code, value) }
+    }
 
     /// Walk the IORegistry and pair each external DCPAVServiceProxy with the framebuffer before it.
     static func discoverLinks() -> [AVLink] {

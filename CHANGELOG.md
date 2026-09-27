@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fix: after a fast slider drag, slow monitor firmware could stay on an older brightness than the slider shows. Umbra now re-sends the final value once the drag ends.
+
 - Fix: an external monitor could come back without DDC control after a reconnect or wake, because macOS publishes its DDC service a moment late. Umbra now checks again for a few seconds.
 - Fix: Umbra could give an unrelated screen (for example a virtual display) another monitor's DDC link. Links now need a matching vendor or product unless the pairing is certain.
 

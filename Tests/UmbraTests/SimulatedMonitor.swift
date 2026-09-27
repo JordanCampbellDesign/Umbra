@@ -15,6 +15,10 @@ struct MonitorProfile: Codable {
     var writeErrors: Double = 0
     /// Codes the monitor answers "unsupported" for.
     var unsupported: [String] = []
+    /// Microseconds the monitor needs after a "get" request before its reply is ready. Reading sooner returns zeros.
+    var replyDelayMicros: Int = 0
+    /// Microseconds the monitor needs between commands. A command that arrives sooner is ignored.
+    var minGapMicros: Int = 0
     /// Notes for people reading the profile: connection, where it came from.
     var notes: String = ""
 
@@ -29,6 +33,8 @@ struct MonitorProfile: Codable {
         dropWrites = try c.decodeIfPresent(Double.self, forKey: .dropWrites) ?? 0
         writeErrors = try c.decodeIfPresent(Double.self, forKey: .writeErrors) ?? 0
         unsupported = try c.decodeIfPresent([String].self, forKey: .unsupported) ?? []
+        replyDelayMicros = try c.decodeIfPresent(Int.self, forKey: .replyDelayMicros) ?? 0
+        minGapMicros = try c.decodeIfPresent(Int.self, forKey: .minGapMicros) ?? 0
         notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
     }
 }
@@ -40,10 +46,16 @@ final class SimulatedMonitor: DDCTransport {
     private(set) var values: [UInt8: (cur: UInt16, max: UInt16)] = [:]
     private(set) var badChecksums = 0
     private var pendingReply: [UInt8]?
+    private var replyReadyAt: UInt64 = 0
+    private var lastCommandAt: UInt64?
+    private(set) var ignoredTooSoon = 0
     private var rng: UInt64
+    /// The clock Umbra waits on. Timing quirks only apply when the test gives the monitor one.
+    var clock: DDCClock?
 
-    init(_ profile: MonitorProfile, seed: UInt64 = 42) {
+    init(_ profile: MonitorProfile, seed: UInt64 = 42, clock: DDCClock? = nil) {
         self.profile = profile
+        self.clock = clock
         rng = seed
         for (k, v) in profile.controls {
             values[UInt8(k.dropFirst(2), radix: 16)!] = (v[0], v[1])
@@ -63,6 +75,12 @@ final class SimulatedMonitor: DDCTransport {
             return kIOReturnSuccess                      // real monitors ignore bad packets silently
         }
         if chance(profile.dropWrites) { return kIOReturnSuccess }
+        // Commands that arrive too soon after the last one are ignored, like on slow monitor firmware.
+        if let clock, profile.minGapMicros > 0 {
+            let now = clock.nowMicros
+            if let last = lastCommandAt, now - last < UInt64(profile.minGapMicros) { ignoredTooSoon += 1; return kIOReturnSuccess }
+            lastCommandAt = now
+        }
         switch bytes.count >= 3 ? bytes[1] : 0 {
         case 0x03 where bytes.count >= 6:                // set VCP feature
             let code = bytes[2], value = UInt16(bytes[3]) << 8 | UInt16(bytes[4])
@@ -75,6 +93,7 @@ final class SimulatedMonitor: DDCTransport {
                                   UInt8(v.max >> 8), UInt8(v.max & 0xFF), UInt8(v.cur >> 8), UInt8(v.cur & 0xFF)]
             reply.append(DDC.checksum(0x50, reply))
             pendingReply = reply
+            replyReadyAt = (clock?.nowMicros ?? 0) + UInt64(profile.replyDelayMicros)
         default:
             break
         }
@@ -82,6 +101,8 @@ final class SimulatedMonitor: DDCTransport {
     }
 
     func read(count: Int) -> (IOReturn, [UInt8]) {
+        // Asked too early: the reply isn't ready yet, so the line reads as zeros (and the request is kept).
+        if let clock, pendingReply != nil, clock.nowMicros < replyReadyAt { return (kIOReturnSuccess, Array(repeating: 0, count: count)) }
         defer { pendingReply = nil }
         if chance(profile.readNoise) || pendingReply == nil {
             // What noisy links send back: zeros, all-ones, or a shifted echo.
@@ -101,4 +122,10 @@ enum MonitorProfiles {
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
             .map { try JSONDecoder().decode(MonitorProfile.self, from: Data(contentsOf: $0)) }
     }
+}
+
+/// A clock that moves forward only when Umbra waits, so timing tests run instantly and exactly.
+final class VirtualClock: DDCClock {
+    private(set) var nowMicros: UInt64 = 1_000_000
+    func sleep(_ micros: Int) { nowMicros += UInt64(max(0, micros)) }
 }

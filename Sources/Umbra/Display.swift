@@ -255,13 +255,29 @@ final class Display: ObservableObject, Identifiable {
         flushing = true
         lock.unlock()
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            var finals: [UInt8: UInt16] = [:]
+            var batches = 0
             while let self {
                 self.lock.lock()
                 let batch = self.pending
                 self.pending = [:]
-                if batch.isEmpty { self.flushing = false; self.lock.unlock(); return }
+                if batch.isEmpty {
+                    // After a burst (a slider drag), re-send the final values once the monitor has settled,
+                    // in case it ignored a command that came too soon after the one before.
+                    if batches > 1, !finals.isEmpty {
+                        self.lock.unlock()
+                        DDC.settle(link, finals: finals)
+                        finals = [:]
+                        batches = 0
+                        continue
+                    }
+                    self.flushing = false
+                    self.lock.unlock()
+                    return
+                }
                 self.lock.unlock()
-                for (k, v) in batch { DDC.write(link, k, v) }
+                for (k, v) in batch { DDC.write(link, k, v); finals[k.rawValue] = v }
+                batches += 1
             }
         }
     }
