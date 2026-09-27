@@ -1,9 +1,12 @@
 # Changelog
 
-## Unreleased
+## 1.0.1
 
 - Away mode: after no input for a time you choose, screens fade down, then turn black, while the Mac stays awake. Any input wakes them. Options to leave one screen on, wait for video, and put DDC monitors in standby. `umbra away now|off|status`.
 - Fix the BlackOut hint in Settings, which named the wrong hotkey for turning displays back on.
+- Sync mode listens for brightness changes instead of checking twice a second, so Umbra wakes the Mac far less often while idle.
+- Smaller download: the app is 3.1 MB (was 5.8 MB) and the DMG is under 1 MB (was 2.1 MB).
+- `umbra state` prints the app's state as JSON, and `umbra set <display> offset <value>` sets the Sync offset.
 
 ## 1.0.0
 

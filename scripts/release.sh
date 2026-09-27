@@ -24,8 +24,11 @@ cp "build/Umbra-$VERSION.dmg" "$DMG"
 "$SPARKLE_BIN/generate_appcast" --download-url-prefix "https://github.com/JordanCampbellDesign/Umbra/releases/download/v$VERSION/" releases
 cp releases/appcast.xml appcast.xml
 
-git add Resources/Info.plist appcast.xml
+git add Resources/Info.plist appcast.xml CHANGELOG.md
 git commit -m "Release $VERSION"
 git tag "v$VERSION"
 git push origin main "v$VERSION"
-gh release create "v$VERSION" "$DMG" --title "Umbra $VERSION" --notes-file CHANGELOG.md
+# Release notes: only this version's section of the changelog.
+NOTES=$(mktemp)
+awk -v v="## $VERSION" '$0==v{on=1;next} /^## /{if(on)exit} on' CHANGELOG.md > "$NOTES"
+gh release create "v$VERSION" "$DMG" --title "Umbra $VERSION" --notes-file "$NOTES"
