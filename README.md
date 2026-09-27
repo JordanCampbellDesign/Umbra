@@ -19,6 +19,14 @@ Umbra covers the features of Lunar.app with no paid tier. It is written from scr
 
 Umbra needs macOS 14 or later on an Apple Silicon Mac. Control Center controls need macOS 26.
 
+With [Homebrew](https://brew.sh):
+
+```bash
+brew install --cask jordancampbelldesign/tap/umbra
+```
+
+This also puts the `umbra` command on your PATH. Or install by hand:
+
 1. Download the Umbra DMG from the [latest release](https://github.com/JordanCampbellDesign/Umbra/releases/latest), open it, and drag Umbra to Applications.
 2. The app isn't notarized by Apple, so the first time you open it, right-click `Umbra.app` and choose **Open**.
 3. Umbra explains each permission before macOS asks for it. Accessibility access is only needed for the brightness and volume keys and for Cleaning Mode.

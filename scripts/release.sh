@@ -32,3 +32,12 @@ git push origin main "v$VERSION"
 NOTES=$(mktemp)
 awk -v v="## $VERSION" '$0==v{on=1;next} /^## /{if(on)exit} on' CHANGELOG.md > "$NOTES"
 gh release create "v$VERSION" "$DMG" --title "Umbra $VERSION" --notes-file "$NOTES"
+
+# Point the Homebrew cask at the new release, if the tap is checked out next to this repo.
+TAP=../homebrew-tap
+if [ -f "$TAP/Casks/umbra.rb" ]; then
+  SHA=$(shasum -a 256 "$DMG" | cut -d' ' -f1)
+  sed -i '' -e "s/^  version \".*\"/  version \"$VERSION\"/" -e "s/^  sha256 \".*\"/  sha256 \"$SHA\"/" "$TAP/Casks/umbra.rb"
+  git -C "$TAP" commit -qam "umbra $VERSION" && git -C "$TAP" push -q
+  echo "Updated the Homebrew cask to $VERSION."
+fi
