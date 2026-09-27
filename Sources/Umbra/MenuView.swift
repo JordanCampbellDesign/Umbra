@@ -32,6 +32,7 @@ struct MenuView: View {
                 Text("Umbra").font(.system(size: 15, weight: .semibold))
                 Spacer()
                 Button(action: openSettings) { Image(systemName: "gearshape") }.buttonStyle(.borderless).help("Settings")
+                    .accessibilityLabel("Settings")
                     .accessibilityIdentifier("openSettings")
             }
             ModePicker(selection: state.settings.mode) { state.requestMode($0) }
@@ -82,6 +83,7 @@ struct MenuView: View {
                 .menuStyle(.borderlessButton).fixedSize()
             Spacer()
             Button { NSApp.terminate(nil) } label: { Image(systemName: "power") }.buttonStyle(.borderless).help("Quit Umbra")
+                .accessibilityLabel("Quit Umbra")
         }
         .padding(10)
         .controlSize(.small)
@@ -167,6 +169,7 @@ struct DisplayCard: View {
                 }
                 .buttonStyle(.borderless)
                 .help(display.blackedOut ? "Turn this display back on" : "BlackOut: turn this display off")
+                .accessibilityLabel(display.blackedOut ? "Turn \(display.name) back on" : "Turn \(display.name) off")
             }
 
             Group {
@@ -182,7 +185,10 @@ struct DisplayCard: View {
                         Button { display.setMuted(!display.config.muted) } label: {
                             Image(systemName: display.config.muted ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 18)
                         }.buttonStyle(.borderless)
+                        .accessibilityLabel(display.config.muted ? "Unmute \(display.name)" : "Mute \(display.name)")
                         Slider(value: Binding(get: { display.config.volume }, set: { display.setVolume($0) }), in: 0 ... 100)
+                            .accessibilityLabel("Volume")
+                            .accessibilityValue("\(Int(display.config.volume)) percent")
                         Text("\(Int(display.config.volume))").font(.caption.monospacedDigit()).frame(width: 30, alignment: .trailing)
                     }
                     inputRow
@@ -230,6 +236,8 @@ struct DisplayCard: View {
                 if display.config.xdr {
                     HStack(spacing: 6) {
                         Slider(value: Binding(get: { display.config.xdrLevel }, set: { display.setXDRLevel($0) }), in: 0 ... 1).tint(.orange)
+                            .accessibilityLabel("XDR brightness")
+                            .accessibilityValue("\(Int(display.config.xdrLevel * 100)) percent")
                         Text("\(Int(display.config.xdrLevel * 100))%").font(.caption.monospacedDigit()).frame(width: 36, alignment: .trailing)
                     }
                     .transition(.blurSwap)
@@ -294,6 +302,10 @@ struct DisplayCard: View {
 }
 
 struct SliderRow: View {
+    /// Spoken names for each slider, keyed by its symbol.
+    static let labels = ["sun.max.fill": "Brightness", "moon.fill": "Dim below 0%", "circle.lefthalf.filled": "Contrast",
+                         "r.circle": "Red", "g.circle": "Green", "b.circle": "Blue",
+                         "arrow.down.to.line": "Minimum brightness", "arrow.up.to.line": "Maximum brightness"]
     let symbol: String
     /// Accessibility identifier for UI tests.
     var id: String? = nil
@@ -304,11 +316,13 @@ struct SliderRow: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: symbol).frame(width: 18).foregroundStyle(tint)
+            Image(systemName: symbol).frame(width: 18).foregroundStyle(tint).accessibilityHidden(true)
             Slider(value: $value, in: range).tint(tint)
                 .accessibilityIdentifier(id ?? "")
+                .accessibilityLabel(Self.labels[symbol] ?? "")
+                .accessibilityValue("\(Int(percent ? value * 100 : value.rounded())) percent")
             Text(percent ? "\(Int(value * 100))" : "\(Int(value.rounded()))")
-                .font(.caption.monospacedDigit()).frame(width: 30, alignment: .trailing)
+                .font(.caption.monospacedDigit()).frame(width: 30, alignment: .trailing).accessibilityHidden(true)
         }
     }
 }

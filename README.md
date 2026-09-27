@@ -122,6 +122,8 @@ Umbra uses private macOS frameworks, loaded at runtime:
 
 Because of this, Umbra can't be on the Mac App Store, and a future macOS update could break a feature until Umbra is updated.
 
+See [docs/monitors.md](docs/monitors.md) for monitors people have tested, and add yours.
+
 Some monitors answer DDC reads with noise. Umbra doesn't need reads: it remembers the last value it sent, like Lunar does. Turn on "Read values from monitor at startup" in Settings > Displays for monitors that answer reads correctly.
 
 ## Privacy and security

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- VoiceOver: icon-only buttons (Settings, Quit, each display's power button, mute) have spoken names, and sliders read as "Brightness, 51 percent" instead of repeating their icon and number.
+
 ## 1.0.1
 
 - Away mode: after no input for a time you choose, screens fade down, then turn black, while the Mac stays awake. Any input wakes them. Options to leave one screen on, wait for video, and put DDC monitors in standby. `umbra away now|off|status`.

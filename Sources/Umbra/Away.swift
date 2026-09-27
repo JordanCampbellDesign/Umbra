@@ -32,19 +32,32 @@ final class Away {
         CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)
     }
 
+    enum Action: Equatable { case none, dim, off, wake }
+
+    /// What Away mode should do next. Pure, so it can be unit tested.
+    static func decide(stage: Stage, idle: Double, lastIdle: Double, enabled: Bool, minutes: Int, displayHeldOn: Bool) -> Action {
+        if stage != .active {
+            // Idle time drops when there is new input: wake up.
+            if idle < lastIdle - 0.3 || idle < 1 { return .wake }
+            if stage == .dimmed, idle >= Double(minutes + 1) * 60 { return .off }
+            return .none
+        }
+        guard enabled, idle >= Double(minutes) * 60, !displayHeldOn else { return .none }
+        return .dim
+    }
+
     private func tick() {
         let idle = Away.idleSeconds
         defer { lastIdle = idle }
-        if stage != .active {
-            // Idle time drops when there is new input: wake up.
-            if idle < lastIdle - 0.3 || idle < 1 { wake(); return }
-            if stage == .dimmed, idle >= Double(settings.awayMinutes + 1) * 60 { turnOff() }
-            return
+        let s = settings
+        // Only ask the power system about other apps when it could matter.
+        let heldOn = stage == .active && s.awayEnabled && idle >= Double(s.awayMinutes) * 60 && s.awayRespectVideo && Away.otherAppKeepsDisplayOn()
+        switch Away.decide(stage: stage, idle: idle, lastIdle: lastIdle, enabled: s.awayEnabled, minutes: s.awayMinutes, displayHeldOn: heldOn) {
+        case .dim: dim()
+        case .off: turnOff()
+        case .wake: wake()
+        case .none: break
         }
-        guard settings.awayEnabled else { return }
-        guard idle >= Double(settings.awayMinutes) * 60 else { return }
-        if settings.awayRespectVideo, Away.otherAppKeepsDisplayOn() { return }
-        dim()
     }
 
     /// True when another app asked macOS to keep the display on, for example while playing video or presenting.
