@@ -32,6 +32,7 @@ struct MenuView: View {
                 Text("Umbra").font(.system(size: 15, weight: .semibold))
                 Spacer()
                 Button(action: openSettings) { Image(systemName: "gearshape") }.buttonStyle(.borderless).help("Settings")
+                    .accessibilityIdentifier("openSettings")
             }
             ModePicker(selection: state.settings.mode) { state.requestMode($0) }
             ModeStatus()
@@ -109,6 +110,7 @@ struct ModeStatus: View {
         // The line keeps its place while its text swaps with a short blur when the mode changes.
         ZStack(alignment: .leading) {
             Text(text).font(.caption).foregroundStyle(.secondary)
+                .accessibilityIdentifier("mode.status")
                 .id(state.settings.mode)
                 .transition(.blurSwap)
         }
@@ -202,7 +204,7 @@ struct DisplayCard: View {
     /// Brightness runs 0 to 100. Dimming below 0% has its own slider, shown once brightness reaches 0.
     private var brightnessRow: some View {
         VStack(spacing: 6) {
-            SliderRow(symbol: "sun.max.fill", value: Binding(
+            SliderRow(symbol: "sun.max.fill", id: "brightness.\(display.name)", value: Binding(
                 get: { display.config.brightness },
                 set: { v in
                     if display.config.subzero > 0 { display.setSubzero(0) }
@@ -293,6 +295,8 @@ struct DisplayCard: View {
 
 struct SliderRow: View {
     let symbol: String
+    /// Accessibility identifier for UI tests.
+    var id: String? = nil
     @Binding var value: Double
     let range: ClosedRange<Double>
     var tint: Color = .accentColor
@@ -302,6 +306,7 @@ struct SliderRow: View {
         HStack(spacing: 6) {
             Image(systemName: symbol).frame(width: 18).foregroundStyle(tint)
             Slider(value: $value, in: range).tint(tint)
+                .accessibilityIdentifier(id ?? "")
             Text(percent ? "\(Int(value * 100))" : "\(Int(value.rounded()))")
                 .font(.caption.monospacedDigit()).frame(width: 30, alignment: .trailing)
         }

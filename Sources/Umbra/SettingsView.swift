@@ -66,6 +66,7 @@ struct GeneralTab: View {
             }
             Section("When you're away") {
                 Toggle("Turn screens off when I'm away", isOn: $state.settings.awayEnabled)
+                    .accessibilityIdentifier("away.enabled")
                 Picker("After no mouse or keyboard input for", selection: $state.settings.awayMinutes) {
                     ForEach([1, 2, 5, 10, 15, 30, 60], id: \.self) { Text($0 == 1 ? "1 minute" : "\($0) minutes").tag($0) }
                 }

@@ -57,6 +57,7 @@ struct ModePicker: View {
                 }
                 .buttonStyle(.plain)
                 .help(m.label)
+                .accessibilityIdentifier("mode.\(m.rawValue)")
             }
         }
         .padding(2)

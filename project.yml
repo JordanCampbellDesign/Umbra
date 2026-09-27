@@ -63,3 +63,26 @@ targets:
         ENABLE_HARDENED_RUNTIME: NO
         MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: "1"
+  UmbraUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: Tests/UmbraUITests
+    dependencies:
+      - target: Umbra
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: design.jordancampbell.umbra.uitests
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "Umbra Local Signing"
+        DEVELOPMENT_TEAM: ""
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Umbra
+schemes:
+  Umbra:
+    build:
+      targets:
+        Umbra: all
+    test:
+      targets:
+        - UmbraUITests

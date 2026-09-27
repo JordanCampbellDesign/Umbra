@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		0B46CAC4C302F9E34445097E /* Motion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97B6D584349D45688BA695F2 /* Motion.swift */; };
 		0F0BF1DD7513AF1B19BF8850 /* Extras.swift in Sources */ = {isa = PBXBuildFile; fileRef = B879CD87C70EC8B2D001AE35 /* Extras.swift */; };
+		21AD2327D4337DC6FEBAE748 /* UmbraUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A8C579F562C0AC139540E37 /* UmbraUITests.swift */; };
 		22794011B339375DD9E63404 /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCCAB10921ECF3E947E76E2 /* MenuView.swift */; };
 		2A63C912CBA97A90809C9EC0 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80E952724CAD6DFF80B83B5E /* Permissions.swift */; };
 		332CA1F4D3E16DBD245584CC /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3B77A7322464783887F2C95 /* SettingsView.swift */; };
@@ -38,6 +39,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		22A1063CD82687CE9C9BEB16 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4720C11896F6DDD044C540A7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D91279C7D0329876476DE5D;
+			remoteInfo = Umbra;
+		};
 		9F5752F1F01048F4AB423E3C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 4720C11896F6DDD044C540A7 /* Project object */;
@@ -71,6 +79,7 @@
 		3C105C3B954F9AAEB61EF20D /* Onboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Onboarding.swift; sourceTree = "<group>"; };
 		4013CF7CCFED594658E0AF46 /* Hotkeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hotkeys.swift; sourceTree = "<group>"; };
 		40864BF3A0CF5E47F8577DBF /* Intents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Intents.swift; sourceTree = "<group>"; };
+		4A8C579F562C0AC139540E37 /* UmbraUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UmbraUITests.swift; sourceTree = "<group>"; };
 		55B02106491B1E70490DAAAE /* OSD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSD.swift; sourceTree = "<group>"; };
 		59274938067EF8A365D3F88F /* Private.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Private.swift; sourceTree = "<group>"; };
 		78251D42CF763BF3F3B8E1CD /* CLI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLI.swift; sourceTree = "<group>"; };
@@ -80,6 +89,7 @@
 		8FB5AD2F8150232542AE6E35 /* Engine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine.swift; sourceTree = "<group>"; };
 		97B6D584349D45688BA695F2 /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
 		A2A70E2CA4A576C7224D10BA /* Sun.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sun.swift; sourceTree = "<group>"; };
+		A7952A053AAE298759F24E8D /* UmbraUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = UmbraUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABCCAB10921ECF3E947E76E2 /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuView.swift; sourceTree = "<group>"; };
 		B097DB495F13F7C509B66988 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 		B3B77A7322464783887F2C95 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -109,6 +119,7 @@
 			children = (
 				B981862295C608D732E2513F /* Umbra.app */,
 				CB5D98D8DD96DE98F09DDC53 /* UmbraControls.appex */,
+				A7952A053AAE298759F24E8D /* UmbraUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -153,6 +164,15 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		60B9A85A1E0116B70C24E8CD /* UmbraUITests */ = {
+			isa = PBXGroup;
+			children = (
+				4A8C579F562C0AC139540E37 /* UmbraUITests.swift */,
+			);
+			name = UmbraUITests;
+			path = Tests/UmbraUITests;
+			sourceTree = "<group>";
+		};
 		72BB5FD67047A4D81844756D /* UmbraControls */ = {
 			isa = PBXGroup;
 			children = (
@@ -168,6 +188,7 @@
 				5AE6921EE4A412DFC84CB4E3 /* Resources */,
 				51A6302F2CC7284676577F86 /* Umbra */,
 				72BB5FD67047A4D81844756D /* UmbraControls */,
+				60B9A85A1E0116B70C24E8CD /* UmbraUITests */,
 				22093AC236CC4094F32DD035 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -214,6 +235,24 @@
 			productReference = B981862295C608D732E2513F /* Umbra.app */;
 			productType = "com.apple.product-type.application";
 		};
+		84A48AD84EDD0F0833A40D6E /* UmbraUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6F94934EB8D01C84C2381998 /* Build configuration list for PBXNativeTarget "UmbraUITests" */;
+			buildPhases = (
+				126361D8FD7E973F62592CEF /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B7BD9968F88BB664E6BC35A0 /* PBXTargetDependency */,
+			);
+			name = UmbraUITests;
+			packageProductDependencies = (
+			);
+			productName = UmbraUITests;
+			productReference = A7952A053AAE298759F24E8D /* UmbraUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -230,6 +269,11 @@
 					4D91279C7D0329876476DE5D = {
 						DevelopmentTeam = "";
 						ProvisioningStyle = Manual;
+					};
+					84A48AD84EDD0F0833A40D6E = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Manual;
+						TestTargetID = 4D91279C7D0329876476DE5D;
 					};
 				};
 			};
@@ -252,6 +296,7 @@
 			targets = (
 				4D91279C7D0329876476DE5D /* Umbra */,
 				4733D5F677D3CF156E44D4AF /* UmbraControls */,
+				84A48AD84EDD0F0833A40D6E /* UmbraUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -268,6 +313,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		126361D8FD7E973F62592CEF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				21AD2327D4337DC6FEBAE748 /* UmbraUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A73B1DDC8C5DFC9830D16073 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -310,6 +363,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		B7BD9968F88BB664E6BC35A0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D91279C7D0329876476DE5D /* Umbra */;
+			targetProxy = 22A1063CD82687CE9C9BEB16 /* PBXContainerItemProxy */;
+		};
 		C321E00B916F58BF9BC2A317 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4733D5F677D3CF156E44D4AF /* UmbraControls */;
@@ -484,6 +542,46 @@
 			};
 			name = Debug;
 		};
+		84EC3ADC6C41C24EF1E6CAB1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "Umbra Local Signing";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = design.jordancampbell.umbra.uitests;
+				SDKROOT = macosx;
+				TEST_TARGET_NAME = Umbra;
+			};
+			name = Release;
+		};
+		A9977AACA28AA23602AF4D3D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "Umbra Local Signing";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = design.jordancampbell.umbra.uitests;
+				SDKROOT = macosx;
+				TEST_TARGET_NAME = Umbra;
+			};
+			name = Debug;
+		};
 		B4205A0B60283AC8ECCEE876 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -539,6 +637,15 @@
 			buildConfigurations = (
 				5C9912F95CC50677E39EB360 /* Debug */,
 				B4205A0B60283AC8ECCEE876 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6F94934EB8D01C84C2381998 /* Build configuration list for PBXNativeTarget "UmbraUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A9977AACA28AA23602AF4D3D /* Debug */,
+				84EC3ADC6C41C24EF1E6CAB1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
