@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Away mode: after no input for a time you choose, screens fade down, then turn black, while the Mac stays awake. Any input wakes them. Options to leave one screen on, wait for video, and put DDC monitors in standby. `umbra away now|off|status`.
+- Fix the BlackOut hint in Settings, which named the wrong hotkey for turning displays back on.
+
 ## 1.0.0
 
 First public release.

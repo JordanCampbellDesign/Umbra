@@ -45,6 +45,12 @@ After that, Umbra updates itself. It checks once a day and asks before it instal
 - FaceLight lights your face for video calls. Night Mode dims, lowers contrast, and warms colors, then restores everything.
 - Cleaning Mode blacks out every screen and ignores the keyboard so you can wipe them.
 
+**Away mode**
+- When there's no mouse or keyboard input for a time you choose, screens fade down, then turn black a minute later.
+- The Mac stays awake, so downloads, builds, and AI agents keep running. On OLED screens it also helps prevent burn-in.
+- Optionally leave one screen on, dimmed, to glance at progress. Umbra waits while an app plays video or presents.
+- Any input brings every screen back to where it was. Turn it on in Settings > General, or run `umbra away now`.
+
 **Arrange screens**
 - Side by side, top to bottom, others above the main screen, mirror, set main, and swap.
 - Every arrangement change switches back after 15 seconds unless you click Keep.

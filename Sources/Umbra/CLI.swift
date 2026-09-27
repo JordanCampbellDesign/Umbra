@@ -24,6 +24,7 @@ enum CLI {
       power <display> on|off           DDC power (monitor standby)
       night on|off|toggle              Night Mode (dim, lower contrast, warm colors)
       open                             Show the main window
+      away now|off|status              Turn screens off now, wake them, or show Away mode
       clean                            Cleaning Mode (black screens, keyboard ignored)
       sleep                            Put the Mac to sleep
       mirror <display>|off             Mirror all screens to one display, or stop
@@ -41,7 +42,7 @@ enum CLI {
         let running = NSRunningApplication.runningApplications(withBundleIdentifier: AppInfo.bundleID).contains { $0.processIdentifier != getpid() }
         let readOnly = ["displays", "get"].contains(args[0]) || (args[0] == "ddc" && args.count == 3)
         let known = ["displays", "get", "set", "ddc", "blackout", "facelight", "xdr", "mode", "preset", "gamma",
-                     "reset-colors", "power", "open", "night", "clean", "sleep", "mirror", "main", "swap", "arrange"]
+                     "reset-colors", "power", "open", "away", "night", "clean", "sleep", "mirror", "main", "swap", "arrange"]
         guard known.contains(args[0]) else { print("error: unknown command \(args[0])\n\n" + usage); return 1 }
         if args[0] == "open" {
             // Launching or reopening the app shows its main window.
@@ -217,6 +218,12 @@ enum CLI {
             return "ok"
 
         case "clean": CleaningMode.shared.start(); return "ok"
+        case "away":
+            switch args.count > 1 ? args[1] : "status" {
+            case "now": Away.shared.now(); return "ok"
+            case "off": Away.shared.wake(); return "ok"
+            default: return "Away mode \(s.settings.awayEnabled ? "on, after \(s.settings.awayMinutes) min" : "off"). Now: \(Away.shared.statusText). Idle: \(Int(Away.idleSeconds)) s"
+            }
         case "open":
             guard let delegate = NSApp.delegate as? AppDelegate else { return "error: Umbra is not running" }
             delegate.openMainWindow()

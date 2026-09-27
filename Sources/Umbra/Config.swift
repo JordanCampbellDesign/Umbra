@@ -204,6 +204,13 @@ struct AppSettings: Codable, Equatable {
     var deskModes: [String: AdaptiveMode] = [:]
     var rememberDeskModes = true
     var contrastFollowsBrightness = false
+    // Away mode
+    var awayEnabled = false
+    var awayMinutes = 5
+    var awayKeepAwake = true
+    var awayKeepScreen = ""        // display uuid to leave on (dimmed), or empty
+    var awayRespectVideo = true
+    var awayDDCStandby = false
     var followContrastMin: Double = 45
     var followContrastMax: Double = 75
     var scrollWithModifiers = true

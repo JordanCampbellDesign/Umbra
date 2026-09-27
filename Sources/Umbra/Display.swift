@@ -22,6 +22,8 @@ final class Display: ObservableObject, Identifiable {
     @Published var name: String
     @Published var config: DisplayConfig { didSet { if config != oldValue { save() } } }
     @Published var blackedOut = false
+    /// Set by Away mode while the screens are turned black.
+    var awayBlack = false
     @Published var inputSource: UInt16?
     @Published var ddcResponsive: Bool?
     var link: AVLink?
@@ -223,6 +225,7 @@ final class Display: ObservableObject, Identifiable {
         if method == .gamma { s.factor = 0.12 + 0.88 * toHardware(config.brightness, .brightness) / 100 }
         if AppState.shared.settings.subzeroEnabled { s.factor *= 1 - 0.97 * config.subzero }
         if blackedOut, AppState.shared.settings.blackOutMethod == .soft { s.factor = 0 }
+        if awayBlack { s.factor = 0 }
         s.red = config.red
         s.green = config.green
         s.blue = config.blue

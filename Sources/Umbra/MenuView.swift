@@ -73,6 +73,7 @@ struct MenuView: View {
                     Button("Stop mirroring") { Arrangement.stopMirroring(state.displays) }
                 }
                 Section("Power") {
+                    Button("Turn screens off now (Away)") { Away.shared.now() }
                     Button("Turn all displays back on") { state.perform(.blackOutRestore) }
                     Button("Sleep Mac") { Power.sleepMac() }
                 }

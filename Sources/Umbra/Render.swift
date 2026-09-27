@@ -12,7 +12,7 @@ enum Render {
         let dark = ProcessInfo.processInfo.environment["UMBRA_DARK"] != nil
         let views: [(String, AnyView, CGSize)] = [
             ("menu", AnyView(MenuView(openSettings: {})), CGSize(width: 380, height: 700)),
-            ("settings-general", AnyView(GeneralTab().padding()), CGSize(width: 640, height: 560)),
+            ("settings-general", AnyView(GeneralTab().padding()), CGSize(width: 640, height: 1400)),
             ("settings-modes", AnyView(ModesTab().padding()), CGSize(width: 640, height: 560)),
             ("settings-displays", AnyView(DisplaysTab().padding()), CGSize(width: 640, height: 560)),
             ("settings-hotkeys", AnyView(HotkeysTab().padding()), CGSize(width: 640, height: 560)),

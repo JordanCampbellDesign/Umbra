@@ -31,6 +31,7 @@
 		BDDA9B55F9472D4249187B52 /* Display.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB7CF464B7EF2268397BBD58 /* Display.swift */; };
 		BF906D591C41FCBD53C84F05 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CA42B8FC2234A81C502E624 /* main.swift */; };
 		D16AB3A720CDE0F6E537A75A /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CB0B724B9CBD43C163D971 /* AppState.swift */; };
+		DA392570A186D40208E1639E /* Away.swift in Sources */ = {isa = PBXBuildFile; fileRef = C05DCBE26FD58FEE53C76FC3 /* Away.swift */; };
 		EAA2C3BF18A04BDA02053FC0 /* Spring.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186DAFDBE9F415B9BC7F5D1D /* Spring.swift */; };
 		EE93436EAEFF31E4913C05EF /* Intents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40864BF3A0CF5E47F8577DBF /* Intents.swift */; };
 		F2A843749092E104BFCE572D /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 88F5AEDD39FC7C024125869D /* Sparkle */; };
@@ -84,6 +85,7 @@
 		B3B77A7322464783887F2C95 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B879CD87C70EC8B2D001AE35 /* Extras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extras.swift; sourceTree = "<group>"; };
 		B981862295C608D732E2513F /* Umbra.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Umbra.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C05DCBE26FD58FEE53C76FC3 /* Away.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Away.swift; sourceTree = "<group>"; };
 		CB5D98D8DD96DE98F09DDC53 /* UmbraControls.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = UmbraControls.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		DB7CF464B7EF2268397BBD58 /* Display.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Display.swift; sourceTree = "<group>"; };
 		E9FA684B7C689DA14BFB9E18 /* Render.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Render.swift; sourceTree = "<group>"; };
@@ -116,6 +118,7 @@
 			children = (
 				EE4A0476B0D5F6109F25EE3C /* AppInfo.swift */,
 				35CB0B724B9CBD43C163D971 /* AppState.swift */,
+				C05DCBE26FD58FEE53C76FC3 /* Away.swift */,
 				78251D42CF763BF3F3B8E1CD /* CLI.swift */,
 				B097DB495F13F7C509B66988 /* Config.swift */,
 				14B68EAF614AF932A2C22D27 /* DDC.swift */,
@@ -271,6 +274,7 @@
 			files = (
 				6F8F7A27A3233FF49CC955F6 /* AppInfo.swift in Sources */,
 				D16AB3A720CDE0F6E537A75A /* AppState.swift in Sources */,
+				DA392570A186D40208E1639E /* Away.swift in Sources */,
 				34414B20D50D6007648640B8 /* CLI.swift in Sources */,
 				8C4860590FAD269390BB8081 /* Config.swift in Sources */,
 				978C2C437E9E4C46158BEC5C /* DDC.swift in Sources */,

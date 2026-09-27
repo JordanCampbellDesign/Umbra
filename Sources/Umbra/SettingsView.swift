@@ -61,7 +61,23 @@ struct GeneralTab: View {
                     ForEach(BlackOutMethod.allCases) { Text($0.label).tag($0) }
                 }
                 Toggle("Auto BlackOut: turn off the built-in display while an external monitor is connected", isOn: $state.settings.autoBlackOut)
-                Text("⌃⌘6 turns off the display under the cursor. ⌃⌘⇧6 turns every display back on. Umbra also turns displays back on when it quits.")
+                Text("⌃⌘6 turns off the display under the cursor. ⌃⌘7 turns every display back on. Umbra also turns displays back on when it quits.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("When you're away") {
+                Toggle("Turn screens off when I'm away", isOn: $state.settings.awayEnabled)
+                Picker("After no mouse or keyboard input for", selection: $state.settings.awayMinutes) {
+                    ForEach([1, 2, 5, 10, 15, 30, 60], id: \.self) { Text($0 == 1 ? "1 minute" : "\($0) minutes").tag($0) }
+                }
+                .disabled(!state.settings.awayEnabled)
+                Toggle("Keep the Mac awake while the screens are off", isOn: $state.settings.awayKeepAwake)
+                Picker("Leave this screen on, dimmed", selection: $state.settings.awayKeepScreen) {
+                    Text("None").tag("")
+                    ForEach(state.displays) { Text($0.name).tag($0.uuid) }
+                }
+                Toggle("Wait while an app plays video or presents", isOn: $state.settings.awayRespectVideo)
+                Toggle("Also put DDC monitors in standby", isOn: $state.settings.awayDDCStandby)
+                Text("Screens fade down first, then turn black a minute later. Moving the mouse or pressing a key brings them back. Downloads, builds, and AI agents keep running while the Mac stays awake. On OLED screens this also helps prevent burn-in.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("FaceLight") {

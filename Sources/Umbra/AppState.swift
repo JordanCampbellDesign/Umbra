@@ -88,6 +88,7 @@ final class AppState: ObservableObject {
         }
         HotkeyCenter.shared.register(settings.hotkeys)
         MediaKeys.shared.start()
+        Away.shared.start()
         Engine.shared.restart()
         DistributedNotificationCenter.default().addObserver(forName: CLI.notification, object: nil, queue: .main) { n in
             // Only the CLI knows the token, so other apps can't send commands.
@@ -101,6 +102,7 @@ final class AppState: ObservableObject {
     }
 
     func shutdown() {
+        Away.shared.wake()
         for d in displays where d.blackedOut { setBlackOut(d, false) }
         displays.forEach { $0.setXDR(false) }
         faceLight.hide()
