@@ -61,9 +61,31 @@ enum InputSource: UInt16, CaseIterable, Identifiable {
     }
 }
 
+/// Sends and receives the bytes of one DDC/CI conversation. The real one talks to a monitor over IOAVService;
+/// tests use a simulated monitor (Tests/UmbraTests/SimulatedMonitor.swift).
+protocol DDCTransport {
+    func write(_ bytes: [UInt8]) -> IOReturn
+    func read(count: Int) -> (IOReturn, [UInt8])
+}
+
+/// DDC over IOAVService on Apple Silicon: I2C address 0x37, sub-address 0x51.
+struct AVServiceTransport: DDCTransport {
+    let service: CFTypeRef
+    func write(_ bytes: [UInt8]) -> IOReturn {
+        guard let w = Private.avWrite else { return kIOReturnUnsupported }
+        return w(service, DDC.address, DDC.subAddress, bytes, UInt32(bytes.count))
+    }
+    func read(count: Int) -> (IOReturn, [UInt8]) {
+        guard let r = Private.avRead else { return (kIOReturnUnsupported, []) }
+        var reply = [UInt8](repeating: 0, count: count)
+        let status = r(service, DDC.address, DDC.subAddress, &reply, UInt32(count))
+        return (status, reply)
+    }
+}
+
 /// One DDC-capable link found in the IORegistry.
 final class AVLink {
-    let service: CFTypeRef
+    let transport: DDCTransport
     let vendor: UInt32?
     let product: UInt32?
     let serial: UInt32?
@@ -71,18 +93,29 @@ final class AVLink {
     let queue = DispatchQueue(label: "umbra.ddc")
 
     init(service: CFTypeRef, attrs: [String: Any]?) {
-        self.service = service
+        transport = AVServiceTransport(service: service)
         let p = attrs?["ProductAttributes"] as? [String: Any]
         vendor = (p?["LegacyManufacturerID"] as? NSNumber)?.uint32Value
         product = (p?["ProductID"] as? NSNumber)?.uint32Value
         serial = (p?["SerialNumber"] as? NSNumber)?.uint32Value
         name = p?["ProductName"] as? String
     }
+
+    init(transport: DDCTransport, name: String? = nil, vendor: UInt32? = nil, product: UInt32? = nil) {
+        self.transport = transport
+        self.name = name
+        self.vendor = vendor
+        self.product = product
+        serial = nil
+    }
 }
 
 enum DDC {
-    private static let address: UInt32 = 0x37
-    private static let subAddress: UInt32 = 0x51
+    static let address: UInt32 = 0x37
+    static let subAddress: UInt32 = 0x51
+    /// Scales the waits between DDC messages. Real monitors need them; tests set this to 0.
+    static var waitScale: Double = 1
+    private static func wait(_ micros: Int) { if waitScale > 0 { usleep(useconds_t(Double(micros) * waitScale)) } }
 
     /// Walk the IORegistry and pair each external DCPAVServiceProxy with the framebuffer before it.
     static func discoverLinks() -> [AVLink] {
@@ -133,8 +166,30 @@ enum DDC {
         return best?.0
     }
 
-    private static func checksum(_ start: UInt8, _ bytes: [UInt8]) -> UInt8 {
+    static func checksum(_ start: UInt8, _ bytes: [UInt8]) -> UInt8 {
         bytes.reduce(start) { $0 ^ $1 }
+    }
+
+    /// "Set VCP feature" message: length, opcode 0x03, code, value high, value low, checksum.
+    static func setPacket(code: UInt8, value: UInt16) -> [UInt8] {
+        var data: [UInt8] = [0x84, 0x03, code, UInt8(value >> 8), UInt8(value & 0xFF)]
+        data.append(checksum(0x6E ^ UInt8(subAddress), data))
+        return data
+    }
+
+    /// "Get VCP feature" request: length, opcode 0x01, code, checksum.
+    static func getPacket(code: UInt8) -> [UInt8] {
+        var req: [UInt8] = [0x82, 0x01, code]
+        req.append(checksum(0x6E ^ UInt8(subAddress), req))
+        return req
+    }
+
+    /// Parse a "Get VCP feature" reply: [src, len, 0x02, result, code, type, maxH, maxL, curH, curL, checksum].
+    /// Returns (current, max), or nil for noise, a wrong code, an unsupported code, or a bad checksum.
+    static func parseReply(_ reply: [UInt8], code: UInt8) -> (UInt16, UInt16)? {
+        guard reply.count >= 11, checksum(0x50, Array(reply[0 ..< 10])) == reply[10],
+              reply[2] == 0x02, reply[3] == 0x00, reply[4] == code else { return nil }
+        return (UInt16(reply[8]) << 8 | UInt16(reply[9]), UInt16(reply[6]) << 8 | UInt16(reply[7]))
     }
 
     @discardableResult
@@ -144,47 +199,44 @@ enum DDC {
 
     @discardableResult
     static func write(_ link: AVLink, code: UInt8, _ value: UInt16) -> Bool {
-        guard let w = Private.avWrite else { return false }
-        var data: [UInt8] = [0x84, 0x03, code, UInt8(value >> 8), UInt8(value & 0xFF)]
-        data.append(checksum(0x6E ^ UInt8(subAddress), data))
+        let data = setPacket(code: code, value: value)
         var ok = false
+        var lastStatus: IOReturn = kIOReturnSuccess
         link.queue.sync {
+            // Many monitors miss the first message, so each command is sent twice.
             for _ in 0 ..< 2 {
-                usleep(10_000)
-                if w(link.service, address, subAddress, data, UInt32(data.count)) == KERN_SUCCESS { ok = true }
+                wait(10_000)
+                let status = link.transport.write(data)
+                if status == KERN_SUCCESS { ok = true } else { lastStatus = status }
             }
         }
+        Diagnostics.shared.ddcWrite(link: link, code: code, ok: ok, status: lastStatus)
         return ok
     }
 
     /// Read a control. Returns (current, max) or nil when the monitor does not answer.
     static func read(_ link: AVLink, _ vcp: VCP) -> (UInt16, UInt16)? {
-        guard let w = Private.avWrite, let r = Private.avRead else { return nil }
-        var req: [UInt8] = [0x82, 0x01, vcp.rawValue]
-        req.append(checksum(0x6E ^ UInt8(subAddress), req))
+        let req = getPacket(code: vcp.rawValue)
         var result: (UInt16, UInt16)?
+        var noisy = 0
         link.queue.sync {
             let debug = ProcessInfo.processInfo.environment["UMBRA_DEBUG"] != nil
             for attempt in 0 ..< 4 {
-                var reply = [UInt8](repeating: 0, count: 11)
                 var wrote = false
                 for _ in 0 ..< 2 {
-                    usleep(10_000)
-                    if w(link.service, address, subAddress, req, UInt32(req.count)) == KERN_SUCCESS { wrote = true }
+                    wait(10_000)
+                    if link.transport.write(req) == KERN_SUCCESS { wrote = true }
                 }
                 guard wrote else { continue }
-                usleep(useconds_t(50_000 + attempt * 20_000))
-                guard r(link.service, address, subAddress, &reply, UInt32(reply.count)) == KERN_SUCCESS else { continue }
+                wait(50_000 + attempt * 20_000)
+                let (status, reply) = link.transport.read(count: 11)
+                guard status == KERN_SUCCESS else { continue }
                 if debug { FileHandle.standardError.write((reply.map { String(format: "%02X", $0) }.joined(separator: " ") + "\n").data(using: .utf8)!) }
-                // reply: [src, len, 0x02, result, vcp, type, maxH, maxL, curH, curL, chk]
-                guard checksum(0x50, Array(reply[0 ..< 10])) == reply[10],
-                      reply[2] == 0x02, reply[3] == 0x00, reply[4] == vcp.rawValue else { continue }
-                let maxV = UInt16(reply[6]) << 8 | UInt16(reply[7])
-                let cur = UInt16(reply[8]) << 8 | UInt16(reply[9])
-                result = (cur, maxV)
-                return
+                if let r = parseReply(reply, code: vcp.rawValue) { result = r; return }
+                noisy += 1
             }
         }
+        Diagnostics.shared.ddcRead(link: link, code: vcp.rawValue, ok: result != nil, noisyReplies: noisy)
         return result
     }
 }

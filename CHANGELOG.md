@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Optional, anonymous monitor diagnostics (off by default) to help fix monitors that don't work, and "Report a problem with a monitor", which opens a pre-filled GitHub issue.
+- A DDC monitor simulator with per-model profiles, so monitor fixes are tested without the monitor.
+
 - VoiceOver: icon-only buttons (Settings, Quit, each display's power button, mute) have spoken names, and sliders read as "Brightness, 51 percent" instead of repeating their icon and number.
 
 ## 1.0.1

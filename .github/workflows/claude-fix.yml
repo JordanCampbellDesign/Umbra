@@ -1,0 +1,38 @@
+name: Claude fix
+
+# When an issue gets the "auto-fix" label (or someone comments "@claude"), Claude reproduces the
+# monitor problem in the simulator, fixes it, and opens a pull request. A person reviews and merges;
+# nothing is released automatically. Needs the ANTHROPIC_API_KEY secret. See docs/automation.md.
+on:
+  issues:
+    types: [labeled]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  fix:
+    if: >
+      (github.event_name == 'issues' && github.event.label.name == 'auto-fix') ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Fix the monitor problem in issue #${{ github.event.issue.number }} of this repository.
+            1. Read the issue. Add or update a profile in Tests/UmbraTests/Monitors/ that reproduces the
+               reported behavior in SimulatedMonitor (read noise, dropped writes, unsupported codes, errors).
+            2. Run `swift test` and confirm a test fails for the reported problem. If the simulator can't
+               express the problem, extend SimulatedMonitor first.
+            3. Fix Umbra so the new test passes and every other profile still passes. Keep the change small.
+            4. Add the monitor to docs/monitors.md and a line to the Unreleased section of CHANGELOG.md.
+            5. Open a pull request that says "Fixes #${{ github.event.issue.number }}", explains the cause,
+               and lists the tests. Don't release anything.

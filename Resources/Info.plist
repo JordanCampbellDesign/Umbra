@@ -47,5 +47,9 @@
 	<string>https://raw.githubusercontent.com/JordanCampbellDesign/Umbra/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>hL3EX2TFEPRbUQAsHpEP0vnPBkfm1GnQMikiNLoLGKg=</string>
+	<key>UmbraPostHogHost</key>
+	<string>https://us.i.posthog.com</string>
+	<key>UmbraPostHogKey</key>
+	<string></string>
 </dict>
 </plist>

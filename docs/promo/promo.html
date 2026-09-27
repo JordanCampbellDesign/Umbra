@@ -135,7 +135,8 @@ const trackX = C + TOG.w / 2 - 28 - 64, knobOff = trackX - 26, knobOn = trackX +
 const DESK = { mon: { w: 400, h: 270, r: 22 }, mac: { w: 400, h: 290, r: 26 }, lx: 500, rx: 940, my: 540, macY: 860 };
 const OSD = { w: 600, h: 124, r: 62 };
 const SIRI = { w: 780, h: 120, r: 60 };
-const CAP = { w: 200, h: 96, r: 48 };
+// The loop starts and ends on Umbra's app icon: a 180 px rounded square with the icon's own corner radius.
+const CAP = { w: 180, h: 180, r: 40 };
 
 // ---------------------------------------------------------------- timeline channels
 // Camera (response 0.6, damping 1.0)
@@ -247,21 +248,22 @@ function exposure(t) {
 
 // ---------------------------------------------------------------- wallpaper (macOS Tahoe style color fields)
 const WP = 2048;
+// On brand: the app icon's deep navy night sky with a soft gold corona, like the eclipse in the icon.
 function makeWallpaper() {
   const c = document.createElement("canvas"); c.width = c.height = WP;
   const g = c.getContext("2d");
-  g.fillStyle = "#1B3A8C"; g.fillRect(0, 0, WP, WP);
+  g.fillStyle = "#0B0C1F"; g.fillRect(0, 0, WP, WP);
   const blob = (x, y, r, col, a) => {
     const rg = g.createRadialGradient(x * WP, y * WP, 0, x * WP, y * WP, r * WP);
     rg.addColorStop(0, col); rg.addColorStop(1, col + "00");
     g.globalAlpha = a; g.fillStyle = rg; g.fillRect(0, 0, WP, WP); g.globalAlpha = 1;
   };
-  blob(0.18, 0.78, 0.62, "#2BB3B1", 0.95);
-  blob(0.84, 0.2, 0.58, "#7B5CFF", 0.95);
-  blob(0.5, 0.45, 0.42, "#2A56C9", 0.6);
-  blob(0.74, 0.76, 0.3, "#FFB38A", 0.9);
-  blob(0.3, 0.16, 0.3, "#7B5CFF", 0.45);
-  // Two flowing ribbons, like Tahoe's waves.
+  blob(0.28, 0.22, 0.62, "#262A5E", 0.95);     // indigo sky, top left
+  blob(0.8, 0.78, 0.6, "#1F2142", 0.9);        // icon navy, bottom right
+  blob(0.62, 0.34, 0.26, "#FFB54A", 0.5);      // gold corona
+  blob(0.61, 0.35, 0.12, "#FF8A26", 0.32);     // its warm core
+  blob(0.18, 0.86, 0.26, "#FFC740", 0.14);     // faint warm light, bottom left
+  blob(0.9, 0.12, 0.3, "#3A3F8F", 0.45);
   g.filter = "blur(70px)"; g.lineCap = "round";
   const ribbon = (pts, col, wdt, a) => {
     g.globalAlpha = a; g.strokeStyle = col; g.lineWidth = wdt;
@@ -269,8 +271,8 @@ function makeWallpaper() {
     g.bezierCurveTo(pts[2] * WP, pts[3] * WP, pts[4] * WP, pts[5] * WP, pts[6] * WP, pts[7] * WP); g.stroke();
     g.globalAlpha = 1;
   };
-  ribbon([-0.1, 0.62, 0.3, 0.35, 0.6, 0.95, 1.1, 0.55], "#2BB3B1", 220, 0.55);
-  ribbon([-0.1, 0.3, 0.35, 0.05, 0.62, 0.62, 1.1, 0.3], "#9C86FF", 180, 0.45);
+  ribbon([-0.1, 0.62, 0.3, 0.35, 0.6, 0.95, 1.1, 0.55], "#3A3F8F", 220, 0.5);
+  ribbon([-0.1, 0.3, 0.35, 0.05, 0.62, 0.62, 1.1, 0.3], "#FFC740", 120, 0.16);
   g.filter = "none";
   const soft = document.createElement("canvas"); soft.width = soft.height = WP;
   const sg = soft.getContext("2d"); sg.filter = "blur(24px)"; sg.drawImage(c, 0, 0);
@@ -433,10 +435,8 @@ const wallURL = wallBase.toDataURL("image/jpeg", 0.85);
 // ---------------------------------------------------------------- DOM content
 const T = { body: "t body", label: "t label", title: "t title" };
 // Menu bar icon: a ring that fills from the bottom with the brightness level (Umbra's own icon).
-const gIcon = el(world, "", "width:64px;height:64px");
-gIcon.innerHTML = `<svg width="64" height="64" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6" fill="none" stroke="${LABEL}" stroke-width="1.8"/>
-  <clipPath id="lvl"><circle cx="12" cy="12" r="6.2"/></clipPath><rect id="lvlFill" x="0" y="0" width="24" height="24" fill="${LABEL}" clip-path="url(#lvl)"/></svg>`;
-const lvlFill = gIcon.querySelector("#lvlFill");
+// Umbra's app icon. The PNG has a 10% transparent margin, so 225 px draws a 180 px rounded square.
+const gIcon = el(world, `<img src="icon.png" width="225" height="225" style="display:block">`, "width:225px;height:225px");
 
 // Card: header, mode picker, status, rows.
 const gHeader = el(world, `<div style="display:flex;align-items:center;gap:14px;height:100%">${svg("sun", 34, LABEL)}<span class="${T.title}" style="font-size:34px">Umbra</span></div>`);
@@ -609,8 +609,8 @@ function seek(tIn) {
   // ---- content
   const br = brightness(t);
   // Menu bar icon
-  const sIcon = swap(t, b(35) + 0.35, b(4));
-  if (applySwap(gIcon, sIcon)) { place(gIcon, C, C, 64, 64); lvlFill.setAttribute("y", (5.8 + 12.4 * (1 - br / 100)).toFixed(3)); }
+  const sIcon = swap(t, b(35) + 0.1, b(4));
+  if (applySwap(gIcon, sIcon, `scale(${(1 + heroSwell(t)).toFixed(4)})`)) place(gIcon, C, C, 225, 225);
 
   // Card
   const ch2 = heroH(t), top = cardTop(Math.max(CARD.h, Math.min(CARD.hMoon, ch2)));
@@ -730,7 +730,7 @@ function seek(tIn) {
   pointer.style.transformOrigin = "3px 3px";
 }
 window.seek = seek;
-window.promoReady = document.fonts.ready.then(() => { seek(0); return true; });
+window.promoReady = Promise.all([document.fonts.ready, gIcon.querySelector("img").decode()]).then(() => { seek(0); return true; });
 seek(0);
 </script>
 </body>

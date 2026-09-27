@@ -81,6 +81,16 @@ struct GeneralTab: View {
                 Text("Screens fade down first, then turn black a minute later. Moving the mouse or pressing a key brings them back. Downloads, builds, and AI agents keep running while the Mac stays awake. On OLED screens this also helps prevent burn-in.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            Section("Diagnostics") {
+                if Diagnostics.shared.available {
+                    Toggle("Share anonymous monitor diagnostics", isOn: $state.settings.diagnosticsEnabled)
+                    Text("Helps fix monitors that don't work with Umbra. Umbra sends each display's model and vendor code, how it controls it, whether DDC commands worked, and crash reports. It never sends serial numbers, screen contents, files, or location.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Button("Report a problem with a monitor…") { Diagnostics.shared.openProblemReport() }
+                Text("Opens a GitHub issue with your Mac and display details filled in, so you can check them before you send it.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("FaceLight") {
                 Slider(value: $state.settings.faceLightBrightness, in: 50 ... 100) { Text("Brightness") }
                 Slider(value: $state.settings.faceLightWarmth, in: 0 ... 1) { Text("Warmth") }

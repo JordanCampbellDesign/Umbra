@@ -1,0 +1,55 @@
+name: Release
+
+# A person starts a release after merging fixes. It builds, signs with the same "Umbra Local Signing"
+# certificate as local builds (so macOS keeps permissions across updates), signs the Sparkle update,
+# publishes the GitHub release, and updates the Homebrew cask. See docs/automation.md for the secrets.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version, for example 1.0.2"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Tests
+        run: swift test
+      - name: Install tools
+        run: |
+          brew install xcodegen
+          python3 -m venv .venv-dmg && .venv-dmg/bin/pip install -q dmgbuild
+      - name: Import the signing certificate
+        env:
+          P12: ${{ secrets.SIGNING_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.SIGNING_P12_PASSWORD }}
+        run: |
+          echo "$P12" | base64 --decode > signing.p12
+          security create-keychain -p ci ci.keychain
+          security default-keychain -s ci.keychain
+          security unlock-keychain -p ci ci.keychain
+          security import signing.p12 -k ci.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci ci.keychain
+          rm signing.p12
+      - name: Build, sign, and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SPARKLE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          UMBRA_POSTHOG_KEY: ${{ secrets.UMBRA_POSTHOG_KEY }}
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "$SPARKLE_KEY" > sparkle.key
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/JordanCampbellDesign/homebrew-tap.git" ../homebrew-tap
+          git -C ../homebrew-tap config user.name "github-actions[bot]"
+          git -C ../homebrew-tap config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          SPARKLE_KEY_FILE=sparkle.key scripts/release.sh "${{ inputs.version }}"
+          rm sparkle.key

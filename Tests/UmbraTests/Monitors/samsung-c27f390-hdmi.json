@@ -1,0 +1,7 @@
+{
+  "name": "Samsung C27F390 over HDMI",
+  "controls": { "0x10": [50, 100], "0x12": [68, 100], "0x62": [50, 100], "0x60": [17, 0] },
+  "readNoise": 1.0,
+  "unsupported": ["0xCA"],
+  "notes": "Reads return noise on Apple Silicon HDMI, so Umbra must not depend on them. It ignores OSD control (0xCA). Measured on the maintainer's desk, September 2026."
+}

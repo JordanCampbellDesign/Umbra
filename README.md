@@ -136,7 +136,7 @@ Some monitors answer DDC reads with noise. Umbra doesn't need reads: it remember
 
 ## Privacy and security
 
-Umbra has no analytics and sends nothing to the internet, apart from checking GitHub for updates. See [SECURITY.md](SECURITY.md) for how the CLI, links, and controls are limited.
+Umbra sends nothing to the internet by default, apart from checking GitHub for updates. You can turn on anonymous monitor diagnostics in Settings > General to help fix monitors that don't work; [docs/automation.md](docs/automation.md) lists exactly what it sends. See [SECURITY.md](SECURITY.md) for how the CLI, links, and controls are limited.
 
 ## Credits
 

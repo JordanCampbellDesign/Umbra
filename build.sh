@@ -25,6 +25,8 @@ if [ -d "$XCODE" ]; then
   find "$APP" -type f -perm -u+x | while read -r f; do
     if lipo -archs "$f" 2>/dev/null | grep -q x86_64 && lipo -archs "$f" | grep -q arm64; then lipo -remove x86_64 "$f" -output "$f"; fi
   done
+  # Diagnostics stay off unless the build has a PostHog project key (set UMBRA_POSTHOG_KEY when building).
+  [ -n "$UMBRA_POSTHOG_KEY" ] && /usr/libexec/PlistBuddy -c "Set :UmbraPostHogKey $UMBRA_POSTHOG_KEY" "$APP/Contents/Info.plist"
   codesign --force --deep --preserve-metadata=entitlements,flags,runtime --sign "${ID:--}" "$APP" 2>/dev/null
   codesign --verify --deep --strict "$APP"
 else

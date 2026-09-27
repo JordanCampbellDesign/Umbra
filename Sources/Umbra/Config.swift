@@ -211,6 +211,7 @@ struct AppSettings: Codable, Equatable {
     var awayKeepScreen = ""        // display uuid to leave on (dimmed), or empty
     var awayRespectVideo = true
     var awayDDCStandby = false
+    var diagnosticsEnabled = false
     var followContrastMin: Double = 45
     var followContrastMax: Double = 75
     var scrollWithModifiers = true

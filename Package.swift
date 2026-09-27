@@ -18,6 +18,6 @@ let package = Package(
                 .linkedFramework("CoreAudio"),
             ]
         ),
-        .testTarget(name: "UmbraTests", dependencies: ["Umbra"], path: "Tests/UmbraTests"),
+        .testTarget(name: "UmbraTests", dependencies: ["Umbra"], path: "Tests/UmbraTests", resources: [.copy("Monitors")]),
     ]
 )

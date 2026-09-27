@@ -29,6 +29,7 @@
 		99CEBA2ADC97AF2E81B1E37E /* UmbraControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1446437B702E8731EA0B8177 /* UmbraControls.swift */; };
 		AEF2E8A5ABE81764DF83EB9B /* UmbraControls.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CB5D98D8DD96DE98F09DDC53 /* UmbraControls.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		B5BD66E99142436A4A70E2C1 /* OSD.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55B02106491B1E70490DAAAE /* OSD.swift */; };
+		B644D2FE6BAC0A2CEA7F1C45 /* Diagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41FB468876D3DE23FC753A86 /* Diagnostics.swift */; };
 		BDDA9B55F9472D4249187B52 /* Display.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB7CF464B7EF2268397BBD58 /* Display.swift */; };
 		BF906D591C41FCBD53C84F05 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CA42B8FC2234A81C502E624 /* main.swift */; };
 		D16AB3A720CDE0F6E537A75A /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CB0B724B9CBD43C163D971 /* AppState.swift */; };
@@ -79,6 +80,7 @@
 		3C105C3B954F9AAEB61EF20D /* Onboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Onboarding.swift; sourceTree = "<group>"; };
 		4013CF7CCFED594658E0AF46 /* Hotkeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hotkeys.swift; sourceTree = "<group>"; };
 		40864BF3A0CF5E47F8577DBF /* Intents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Intents.swift; sourceTree = "<group>"; };
+		41FB468876D3DE23FC753A86 /* Diagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics.swift; sourceTree = "<group>"; };
 		4A8C579F562C0AC139540E37 /* UmbraUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UmbraUITests.swift; sourceTree = "<group>"; };
 		55B02106491B1E70490DAAAE /* OSD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSD.swift; sourceTree = "<group>"; };
 		59274938067EF8A365D3F88F /* Private.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Private.swift; sourceTree = "<group>"; };
@@ -133,6 +135,7 @@
 				78251D42CF763BF3F3B8E1CD /* CLI.swift */,
 				B097DB495F13F7C509B66988 /* Config.swift */,
 				14B68EAF614AF932A2C22D27 /* DDC.swift */,
+				41FB468876D3DE23FC753A86 /* Diagnostics.swift */,
 				DB7CF464B7EF2268397BBD58 /* Display.swift */,
 				8FB5AD2F8150232542AE6E35 /* Engine.swift */,
 				B879CD87C70EC8B2D001AE35 /* Extras.swift */,
@@ -331,6 +334,7 @@
 				34414B20D50D6007648640B8 /* CLI.swift in Sources */,
 				8C4860590FAD269390BB8081 /* Config.swift in Sources */,
 				978C2C437E9E4C46158BEC5C /* DDC.swift in Sources */,
+				B644D2FE6BAC0A2CEA7F1C45 /* Diagnostics.swift in Sources */,
 				BDDA9B55F9472D4249187B52 /* Display.swift in Sources */,
 				4F88486DA0094958BBAF6C47 /* Engine.swift in Sources */,
 				0F0BF1DD7513AF1B19BF8850 /* Extras.swift in Sources */,

@@ -21,7 +21,9 @@ SPARKLE_BIN=$(find .xcbuild/SourcePackages/artifacts -type d -path "*Sparkle/bin
 rm -rf releases && mkdir releases
 DMG="releases/Umbra-$VERSION.dmg"
 cp "build/Umbra-$VERSION.dmg" "$DMG"
-"$SPARKLE_BIN/generate_appcast" --download-url-prefix "https://github.com/JordanCampbellDesign/Umbra/releases/download/v$VERSION/" releases
+# In CI the EdDSA key comes from a file; on your Mac it comes from the keychain.
+KEY_ARGS=""; [ -n "$SPARKLE_KEY_FILE" ] && KEY_ARGS="--ed-key-file $SPARKLE_KEY_FILE"
+"$SPARKLE_BIN/generate_appcast" $KEY_ARGS --download-url-prefix "https://github.com/JordanCampbellDesign/Umbra/releases/download/v$VERSION/" releases
 cp releases/appcast.xml appcast.xml
 
 git add Resources/Info.plist appcast.xml CHANGELOG.md

@@ -1,0 +1,8 @@
+{
+  "name": "Monitor behind a flaky USB-C dock",
+  "controls": { "0x10": [70, 100], "0x12": [50, 100], "0x62": [20, 100] },
+  "readNoise": 0.5,
+  "dropWrites": 0.3,
+  "writeErrors": 0.1,
+  "notes": "Loses some messages. Umbra sends each write twice and retries reads, so it should still land."
+}

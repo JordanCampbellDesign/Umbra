@@ -14,6 +14,11 @@ enum Brand {
         "MSI": "MSI", "GBT": "Gigabyte", "ACR": "Acer", "HPN": "HP", "SNY": "Sony", "EIZ": "Eizo",
     ]
 
+    /// The three-letter EDID vendor code, for example "SAM" for Samsung.
+    static func code(_ v: UInt32) -> String {
+        String([(v >> 10) & 31, (v >> 5) & 31, v & 31].map { Character(UnicodeScalar(UInt8(64 + $0))) })
+    }
+
     static func of(_ id: CGDirectDisplayID) -> String? {
         let v = CGDisplayVendorNumber(id)
         let letters = [(v >> 10) & 31, (v >> 5) & 31, v & 31].map { Character(UnicodeScalar(UInt8(64 + $0))) }

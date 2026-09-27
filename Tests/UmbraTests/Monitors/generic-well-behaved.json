@@ -1,0 +1,5 @@
+{
+  "name": "Generic well-behaved DDC monitor",
+  "controls": { "0x10": [50, 100], "0x12": [50, 100], "0x62": [30, 100], "0x60": [15, 0], "0xD6": [1, 5] },
+  "notes": "Answers every read correctly. The baseline every fix must keep working."
+}

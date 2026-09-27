@@ -79,6 +79,9 @@ struct MenuView: View {
                     Button("Turn all displays back on") { state.perform(.blackOutRestore) }
                     Button("Sleep Mac") { Power.sleepMac() }
                 }
+                Section("Help") {
+                    Button("Report a problem with a monitor…") { Diagnostics.shared.openProblemReport() }
+                }
             } label: { Label("More", systemImage: "ellipsis.circle") }
                 .menuStyle(.borderlessButton).fixedSize()
             Spacer()

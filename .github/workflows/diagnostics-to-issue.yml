@@ -1,0 +1,37 @@
+name: Diagnostics to issue
+
+# PostHog sends failed-monitor reports here (a webhook destination that calls the GitHub
+# repository_dispatch API with event_type "monitor-failure"). Each monitor model gets one issue;
+# later reports add a comment instead of a new issue. See docs/automation.md.
+on:
+  repository_dispatch:
+    types: [monitor-failure]
+
+permissions:
+  issues: write
+
+jobs:
+  file:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const p = context.payload.client_payload || {};
+            const model = String(p.model || "unknown monitor").slice(0, 80);
+            const title = `Monitor: ${model}`;
+            const body = [
+              "Reported automatically by Umbra's opt-in diagnostics.",
+              "",
+              `- Model: ${model} (vendor ${p.vendor_id ?? "?"}, product ${p.product_id ?? "?"})`,
+              `- Control: VCP ${p.vcp ?? "?"}, writes ok ${p.writes_ok ?? 0}, writes failed ${p.writes_failed ?? 0}, reads ok ${p.reads_ok ?? 0}, reads failed ${p.reads_failed ?? 0}, noisy replies ${p.noisy_replies ?? 0}`,
+              `- Last IOKit error: ${p.last_error ?? "none"}`,
+              `- Umbra ${p.umbra_version ?? "?"} on macOS ${p.macos ?? "?"}`,
+            ].join("\n");
+            const { data: open } = await github.rest.issues.listForRepo({ ...context.repo, state: "open", labels: "from-diagnostics", per_page: 100 });
+            const existing = open.find(i => i.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: existing.number, body });
+            } else {
+              await github.rest.issues.create({ ...context.repo, title, body, labels: ["monitor", "from-diagnostics", "auto-fix"] });
+            }
