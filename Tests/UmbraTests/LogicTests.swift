@@ -84,3 +84,25 @@ final class LinkMatchTests: XCTestCase {
         XCTAssertNil(DDC.bestLink(vendor: 40557, product: 23313, serial: 0, links: [lg], used: [0], allowGuess: false))
     }
 }
+
+final class IgnoredWriteTests: XCTestCase {
+    func testMatchingReplyMeansTheWriteWorked() {
+        XCTAssertEqual(DDC.writeTookEffect(sent: 40, reply: (40, 100)), true)
+        XCTAssertEqual(DDC.writeTookEffect(sent: 40, reply: (42, 100)), true)   // monitors round
+    }
+
+    func testOldValueMeansTheMonitorIgnoredIt() {
+        // The Samsung C27F390 on HDMI: Umbra sent 16, the monitor still says 100.
+        XCTAssertEqual(DDC.writeTookEffect(sent: 16, reply: (100, 100)), false)
+    }
+
+    func testNoReplyTellsNothing() {
+        XCTAssertNil(DDC.writeTookEffect(sent: 16, reply: nil))
+        XCTAssertNil(DDC.writeTookEffect(sent: 16, reply: (0, 0)))
+    }
+
+    func testToleranceScalesWithTheMonitorsRange() {
+        XCTAssertEqual(DDC.writeTookEffect(sent: 100, reply: (108, 255)), true)
+        XCTAssertEqual(DDC.writeTookEffect(sent: 100, reply: (140, 255)), false)
+    }
+}

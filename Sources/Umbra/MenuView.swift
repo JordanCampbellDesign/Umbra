@@ -180,6 +180,8 @@ struct DisplayCard: View {
                 Text("This display is off. Click the power button or press ⌃⌘7 to turn it back on.")
                     .font(.caption).foregroundStyle(.secondary)
             } else {
+                if display.ignoresWrites { ignoredNotice }
+                else if display.askIfWritesWork { askNotice }
                 brightnessRow
                 if display.supportsXDR { xdrRow }
                 if display.hasHardwareControls {
@@ -208,6 +210,34 @@ struct DisplayCard: View {
         .background(.background.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.quaternary))
         .opacity(display.blackedOut ? 0.7 : 1)
+    }
+
+    private var ignoredNotice: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("This monitor ignores brightness changes from Umbra. Software dimming darkens the picture instead, and works on any monitor.")
+                .font(.caption).fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Button("Use Software Dimming") { display.useSoftwareDimming() }.controlSize(.small)
+                Button("Not Now") { display.ignoresWrites = false }.controlSize(.small).buttonStyle(.borderless)
+            }
+        }
+        .padding(8)
+        .background(.yellow.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        .transition(.blurReveal)
+    }
+
+    private var askNotice: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Did this screen get brighter or darker when you moved the slider? This monitor can't report its brightness, so Umbra can't check.")
+                .font(.caption).fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Button("Yes, It Changed") { display.confirmWritesWork() }.controlSize(.small)
+                Button("No, Use Software Dimming") { display.useSoftwareDimming() }.controlSize(.small)
+            }
+        }
+        .padding(8)
+        .background(.blue.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+        .transition(.blurReveal)
     }
 
     /// Brightness runs 0 to 100. Dimming below 0% has its own slider, shown once brightness reaches 0.

@@ -225,6 +225,13 @@ enum DDC {
         return (UInt16(reply[8]) << 8 | UInt16(reply[9]), UInt16(reply[6]) << 8 | UInt16(reply[7]))
     }
 
+    /// Did a brightness write stick? nil when the reply can't tell (no reply or noise).
+    /// A small difference is allowed, since some monitors round or clamp values.
+    static func writeTookEffect(sent: UInt16, reply: (UInt16, UInt16)?) -> Bool? {
+        guard let (cur, mx) = reply, mx > 0 else { return nil }
+        return abs(Int(cur) - Int(sent)) <= Swift.max(2, Int(mx) / 25)
+    }
+
     /// The raw value to send for a percentage, given the monitor's maximum for that control.
     static func hardwareValue(percent: Double, max: UInt16) -> UInt16 {
         UInt16((Swift.max(0, Swift.min(100, percent)) / 100 * Double(max)).rounded())

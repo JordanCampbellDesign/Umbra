@@ -26,6 +26,14 @@ final class Display: ObservableObject, Identifiable {
     var awayBlack = false
     @Published var inputSource: UInt16?
     @Published var ddcResponsive: Bool?
+    /// Set when the monitor answers reads but keeps its old brightness after Umbra changes it.
+    @Published var ignoresWrites = false
+    /// Set when the monitor never answers reads, so Umbra asks the person whether the screen changed.
+    @Published var askIfWritesWork = false
+    private var silentChecks = 0
+    private var writeChecks = 0
+    private var writeMisses = 0
+    private var writeCheckDone = false
     var link: AVLink?
 
     private var maxValues: [VCP: UInt16] = [.brightness: 100, .contrast: 100, .volume: 100]
@@ -256,6 +264,7 @@ final class Display: ObservableObject, Identifiable {
         lock.unlock()
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             var finals: [UInt8: UInt16] = [:]
+            var lastBrightness: UInt16?
             var batches = 0
             while let self {
                 self.lock.lock()
@@ -273,13 +282,64 @@ final class Display: ObservableObject, Identifiable {
                     }
                     self.flushing = false
                     self.lock.unlock()
+                    if let b = finals[VCP.brightness.rawValue] ?? lastBrightness { self.checkWriteTookEffect(link, sent: b) }
                     return
                 }
                 self.lock.unlock()
                 for (k, v) in batch { DDC.write(link, k, v); finals[k.rawValue] = v }
+                if let b = batch[.brightness] { lastBrightness = b }
                 batches += 1
             }
         }
+    }
+
+    /// Some monitors answer reads but ignore every write, so the slider moves and the screen doesn't.
+    /// After a brightness change, read it back a few times per launch. Two clear misses mean the monitor ignores
+    /// Umbra, and the menu offers software dimming. Noisy replies fail the checksum and count as nothing.
+    private func checkWriteTookEffect(_ link: AVLink, sent: UInt16) {
+        lock.lock()
+        guard config.method == .auto, config.ddcWritesWork == nil, !writeCheckDone, writeChecks < 6 else { lock.unlock(); return }
+        writeChecks += 1
+        lock.unlock()
+        usleep(400_000)
+        let reply = DDC.read(link, .brightness)
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            switch DDC.writeTookEffect(sent: sent, reply: reply) {
+            case true?: self.writeCheckDone = true
+            case false?:
+                self.writeMisses += 1
+                if self.writeMisses >= 2 {
+                    self.writeCheckDone = true
+                    self.ignoresWrites = true
+                    Diagnostics.shared.failure("ddc_writes_ignored", Diagnostics.describe(self))
+                }
+            case nil:
+                // Three changes with no usable reply: ask once instead of guessing.
+                self.silentChecks += 1
+                if self.silentChecks >= 3, self.writeMisses == 0 {
+                    self.writeCheckDone = true
+                    self.askIfWritesWork = true
+                }
+            }
+        }
+    }
+
+    /// Stop controlling this monitor over DDC and dim it in software instead.
+    func useSoftwareDimming() {
+        ignoresWrites = false
+        askIfWritesWork = false
+        config.ddcWritesWork = false
+        config.method = .gamma
+        objectWillChange.send()
+        applyAll()
+    }
+
+    /// The person says the screen does change, so stop asking.
+    func confirmWritesWork() {
+        askIfWritesWork = false
+        ignoresWrites = false
+        config.ddcWritesWork = true
     }
 
     /// Give a display its DDC link after it's already showing, for example when the link appears late after a reconnect.

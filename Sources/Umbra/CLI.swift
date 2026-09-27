@@ -11,7 +11,7 @@ enum CLI {
 
       displays                         List displays and their values
       get <display> <property>         Read brightness, contrast, volume, input, subzero, xdr
-      set <display> <property> <value> Set brightness|contrast|volume|mute|input|subzero|xdr|xdrlevel|red|green|blue
+      set <display> <property> <value> Set brightness|contrast|volume|mute|input|subzero|xdr|xdrlevel|red|green|blue|method
       ddc <display> <vcp-hex> [value]  Read a DDC control, or send any DDC command (ddc 2 0xD6 5)
       blackout <display> on|off        Turn a display off or back on
       facelight                        Toggle FaceLight
@@ -116,7 +116,7 @@ enum CLI {
                 "displays": s.displays.map { d -> [String: Any] in
                     ["name": d.name, "uuid": d.uuid, "method": d.method.rawValue, "builtin": d.isBuiltin,
                      "brightness": (d.config.brightness * 100).rounded() / 100, "contrast": d.config.contrast,
-                     "subzero": (d.config.subzero * 1000).rounded() / 1000, "blackedOut": d.blackedOut,
+                     "subzero": (d.config.subzero * 1000).rounded() / 1000, "blackedOut": d.blackedOut, "ignoresWrites": d.ignoresWrites, "askIfWritesWork": d.askIfWritesWork,
                      "syncOffset": d.config.syncOffset,
                      "red": d.config.red, "green": d.config.green, "blue": d.config.blue]
                 },
@@ -168,6 +168,10 @@ enum CLI {
                     guard let input = val ?? named else { return "error: bad input \(raw)" }
                     d.setInput(input)
                 case "subzero": d.setSubzero(v / 100)
+                case "method":
+                    guard let m = ControlMethod(rawValue: raw) else { return "error: method is auto, appleNative, ddc, network, or gamma" }
+                    d.config.method = m
+                    d.applyAll()
                 case "offset": d.config.syncOffset = max(-100, min(100, v))   // the adaptive-mode offset Umbra learned for this display
                 case "xdr": d.setXDR(raw == "on" || raw == "1")
                 case "xdrlevel": d.setXDRLevel(v / 100)

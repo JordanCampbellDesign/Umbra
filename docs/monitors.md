@@ -13,7 +13,7 @@ Legend: ✅ works, ⚠️ partly or with a note, ❌ doesn't work, ❔ not check
 |---|---|---|---|---|---|---|---|---|---|---|
 | MacBook Pro built-in (XDR) | built-in | Apple Silicon | Apple Native | ✅ | n/a | n/a | n/a | ✅ BlackOut | n/a | XDR Brightness above 100% works. |
 | LG UltraFine 5K | Thunderbolt | Apple Silicon | Apple Native | ✅ | n/a | n/a | n/a | ✅ BlackOut | n/a | Shows up as two DDC links (tiled); Umbra uses Apple Native. |
-| Samsung C27F390 | HDMI | Apple Silicon | DDC | ❔ | ❔ | ❔ | ❔ | ✅ BlackOut | ❌ | Reads return noise, so Umbra remembers the last value it sent. Its own on-screen menu can't be hidden over DDC. |
+| Samsung C27F390 | HDMI (M4 Max, direct) | Apple Silicon | Gamma | ❌ | ❌ | ❌ | ❔ | ✅ BlackOut | ❌ | Answers some reads but ignores every DDC write, even after a power cycle. Use software dimming (Umbra offers it). |
 
 ## Reporting a monitor
 

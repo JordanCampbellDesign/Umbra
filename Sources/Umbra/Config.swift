@@ -76,6 +76,8 @@ struct DisplayConfig: Codable, Equatable {
     var lastInput: UInt16?
     /// The monitor's maximum DDC value for brightness, contrast, and volume. 0 means detect it.
     var ddcMax: Int = 0
+    /// The person's answer to "Did this screen change?" for a monitor that can't report its brightness. nil = not asked.
+    var ddcWritesWork: Bool?
 }
 
 enum ScheduleAnchor: String, Codable, CaseIterable, Identifiable {
