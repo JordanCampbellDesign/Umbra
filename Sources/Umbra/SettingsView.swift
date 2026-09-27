@@ -248,6 +248,12 @@ struct DisplayDetail: View {
                 Text("Gamma dims in software. Set the monitor's own brightness to the maximum first. Network sends DDC commands to a relay such as a Raspberry Pi.")
                     .font(.caption).foregroundStyle(.secondary)
                 Toggle("Read values from monitor at startup", isOn: $display.config.readDDC)
+                Picker("Monitor's maximum value", selection: $display.config.ddcMax) {
+                    Text("Detect").tag(0)
+                    ForEach([50, 64, 100, 255], id: \.self) { Text("\($0)").tag($0) }
+                }
+                Text("Most monitors use 0 to 100. If full brightness looks dim, your monitor may use a different range, such as 0 to 255.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Button("Read values from monitor now") { display.readHardware(force: true) }.disabled(display.link == nil)
             }
             Section("Limits") {

@@ -49,6 +49,10 @@ Claude reproduces the problem with the monitor simulator before changing anythin
 - `Tests/UmbraTests/SimulatedMonitor.swift` is a fake monitor that speaks DDC/CI (MCCS). It checks Umbra's checksums, applies settings, answers reads, and can misbehave: noisy reads, dropped writes, IOKit errors, unsupported controls.
 - `Tests/UmbraTests/Monitors/*.json` holds one profile per monitor model. Every profile runs through the same contract tests (`swift test`): writes must land, and reads may fail but must never return a wrong value.
 
+There's also a **monitor zoo** (`Tests/UmbraTests/MonitorZooTests.swift`): 2,000 generated monitors that mix the quirks seen in the wild (value ranges of 50, 64, or 255 instead of 100, noisy or missing reads, dropped writes, I/O errors, no speakers, no DDC contrast). It's seeded, so any failure reproduces exactly. It found that Umbra assumed every monitor uses 0 to 100: a monitor using 0 to 255 topped out at about 39% brightness. Umbra now learns each control's range when a monitor connects, and Settings > Displays has a manual override for monitors that never answer.
+
+No public database of per-model DDC behavior exists. [linuxhw/EDID](https://github.com/linuxhw/EDID) has identity data for about 175,000 monitors (names, vendors, product codes) but nothing about how they respond over DDC. That's why the zoo generates behavior, and why reports from real monitors (diagnostics or issues) become profiles.
+
 So each reported monitor becomes a profile, the fix has to make its test pass, and every earlier profile keeps it from breaking other monitors. The pull request runs the normal `Build` workflow.
 
 ## 4. Release

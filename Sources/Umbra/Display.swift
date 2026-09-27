@@ -49,6 +49,7 @@ final class Display: ObservableObject, Identifiable {
         name = isBuiltin ? "Built-in Display" : (screenName ?? link?.name ?? "Display \(id)")
         config = Store.loadMerged("display.\(uuid)", fallback: DisplayConfig())
         inputSource = config.lastInput
+        if let link { probeRange(link) }
         if method == .appleNative, let b = Private.getBrightness(id) {
             config.brightness = toUser(Double(b) * 100, .brightness)
         }
@@ -238,8 +239,8 @@ final class Display: ObservableObject, Identifiable {
             let value = raw ? UInt16(percent) : UInt16((percent / 100 * 100).rounded())
             NetworkDDC.send(base: config.networkURL, vcp, value)
         case .ddc:
-            let maxV = Double(maxValues[vcp] ?? 100)
-            let value = raw ? UInt16(percent) : UInt16((percent / 100 * maxV).rounded())
+            let max = config.ddcMax > 0 ? UInt16(config.ddcMax) : (maxValues[vcp] ?? 100)
+            let value = raw ? UInt16(percent) : DDC.hardwareValue(percent: percent, max: max)
             enqueue(vcp, value)
         default:
             if vcp == .brightness { applyGamma() }
@@ -261,6 +262,21 @@ final class Display: ObservableObject, Identifiable {
                 if batch.isEmpty { self.flushing = false; self.lock.unlock(); return }
                 self.lock.unlock()
                 for (k, v) in batch { DDC.write(link, k, v) }
+            }
+        }
+    }
+
+    /// Learn each control's real maximum once, in the background, then re-send the current values scaled to it.
+    /// Without this, a monitor whose brightness goes to 255 would top out at 100/255 (about 39%).
+    private func probeRange(_ link: AVLink) {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let found = DDC.probeMax(link)
+            guard !found.isEmpty else { return }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                var changed = false
+                for (vcp, mx) in found where self.maxValues[vcp] != mx { self.maxValues[vcp] = mx; changed = true }
+                if changed, self.method == .ddc { self.applyAll() }
             }
         }
     }

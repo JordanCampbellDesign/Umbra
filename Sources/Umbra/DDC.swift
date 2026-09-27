@@ -192,6 +192,21 @@ enum DDC {
         return (UInt16(reply[8]) << 8 | UInt16(reply[9]), UInt16(reply[6]) << 8 | UInt16(reply[7]))
     }
 
+    /// The raw value to send for a percentage, given the monitor's maximum for that control.
+    static func hardwareValue(percent: Double, max: UInt16) -> UInt16 {
+        UInt16((Swift.max(0, Swift.min(100, percent)) / 100 * Double(max)).rounded())
+    }
+
+    /// Ask the monitor for each control's maximum. Many monitors use 100, but some use 255 or 50.
+    /// Only replies with a valid checksum count, so a noisy link just leaves the control out.
+    static func probeMax(_ link: AVLink, _ controls: [VCP] = [.brightness, .contrast, .volume]) -> [VCP: UInt16] {
+        var result: [VCP: UInt16] = [:]
+        for vcp in controls {
+            if let (_, mx) = read(link, vcp), mx > 0 { result[vcp] = mx }
+        }
+        return result
+    }
+
     @discardableResult
     static func write(_ link: AVLink, _ vcp: VCP, _ value: UInt16) -> Bool {
         write(link, code: vcp.rawValue, value)

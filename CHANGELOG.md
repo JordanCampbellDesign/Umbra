@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fix: monitors whose brightness, contrast, or volume range isn't 0 to 100 (for example 0 to 255) couldn't reach full brightness. Umbra now learns each control's range when the monitor connects, and Settings > Displays has a manual override.
+
 - Optional, anonymous monitor diagnostics (off by default) to help fix monitors that don't work, and "Report a problem with a monitor", which opens a pre-filled GitHub issue.
 - A DDC monitor simulator with per-model profiles, so monitor fixes are tested without the monitor.
 

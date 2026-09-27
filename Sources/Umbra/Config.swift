@@ -74,6 +74,8 @@ struct DisplayConfig: Codable, Equatable {
     var readDDC = false
     /// Last input picked in Umbra. Shown when the monitor cannot report its input.
     var lastInput: UInt16?
+    /// The monitor's maximum DDC value for brightness, contrast, and volume. 0 means detect it.
+    var ddcMax: Int = 0
 }
 
 enum ScheduleAnchor: String, Codable, CaseIterable, Identifiable {
