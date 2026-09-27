@@ -22,7 +22,11 @@ final class Engine: NSObject, CLLocationManagerDelegate {
         let interval: Double
         switch settings.mode {
         case .manual: return
-        case .sync: interval = max(0.2, settings.syncPollSeconds)
+        case .sync:
+            // macOS tells us when the source's brightness changes, so only a slow backup check is needed.
+            // Without the notification, fall back to polling.
+            let watched = syncSource.map { Private.watchBrightness($0.id) } ?? false
+            interval = watched ? 3 : max(0.2, settings.syncPollSeconds)
         case .sensor: interval = 2
         case .location, .clock: interval = 30
         }
@@ -60,6 +64,12 @@ final class Engine: NSObject, CLLocationManagerDelegate {
     var syncSource: Display? {
         if !settings.syncSource.isEmpty, let d = state.displays.first(where: { $0.uuid == settings.syncSource }) { return d }
         return state.displays.first { $0.isBuiltin } ?? state.displays.first { $0.method == .appleNative }
+    }
+
+    /// Called on the main thread when macOS reports a brightness change on a watched display.
+    func brightnessChanged() {
+        guard settings.mode == .sync else { return }
+        tick(force: false)
     }
 
     private func syncTick(force: Bool) {

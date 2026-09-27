@@ -36,6 +36,22 @@ enum Private {
         return f(id, max(0, min(1, v))) == 0
     }
 
+    typealias RegisterFn = @convention(c) (CGDirectDisplayID, UnsafeRawPointer?, CFNotificationCallback) -> Int32
+    static let dsRegisterBrightness = sym(displayServices, "DisplayServicesRegisterForBrightnessChangeNotifications", as: RegisterFn.self)
+    private static var brightnessWatched = Set<CGDirectDisplayID>()
+
+    /// Ask macOS to tell us when a display's brightness changes. Returns false when the call is missing or fails.
+    @discardableResult
+    static func watchBrightness(_ id: CGDirectDisplayID) -> Bool {
+        if brightnessWatched.contains(id) { return true }
+        guard let f = dsRegisterBrightness else { return false }
+        let ok = f(id, nil, { _, _, _, _, _ in
+            DispatchQueue.main.async { Engine.shared.brightnessChanged() }
+        }) == 0
+        if ok { brightnessWatched.insert(id) }
+        return ok
+    }
+
     static func canChangeBrightness(_ id: CGDirectDisplayID) -> Bool {
         dsCanChange?(id) ?? false
     }

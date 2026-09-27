@@ -5,7 +5,7 @@ import os
 app = defines.get("app", "build/Umbra.app")
 here = os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else "scripts/dmg"
 
-format = "UDZO"
+format = "ULMO"
 filesystem = "APFS"
 files = [app]
 symlinks = {"Applications": "/Applications"}
