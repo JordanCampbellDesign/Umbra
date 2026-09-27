@@ -1,18 +1,14 @@
 # Changelog
 
-## Unreleased
-
-- Fix: after a fast slider drag, slow monitor firmware could stay on an older brightness than the slider shows. Umbra now re-sends the final value once the drag ends.
-
-- Fix: an external monitor could come back without DDC control after a reconnect or wake, because macOS publishes its DDC service a moment late. Umbra now checks again for a few seconds.
-- Fix: Umbra could give an unrelated screen (for example a virtual display) another monitor's DDC link. Links now need a matching vendor or product unless the pairing is certain.
-
-- Fix: monitors whose brightness, contrast, or volume range isn't 0 to 100 (for example 0 to 255) couldn't reach full brightness. Umbra now learns each control's range when the monitor connects, and Settings > Displays has a manual override.
+## 1.0.2
 
 - Optional, anonymous monitor diagnostics (off by default) to help fix monitors that don't work, and "Report a problem with a monitor", which opens a pre-filled GitHub issue.
-- A DDC monitor simulator with per-model profiles, so monitor fixes are tested without the monitor.
-
-- VoiceOver: icon-only buttons (Settings, Quit, each display's power button, mute) have spoken names, and sliders read as "Brightness, 51 percent" instead of repeating their icon and number.
+- VoiceOver: icon-only buttons (Settings, Quit, each display's power button, mute) have spoken names, and sliders read as "Brightness, 51 percent".
+- Fix: monitors whose range isn't 0 to 100 (for example 0 to 255) couldn't reach full brightness. Umbra now learns each control's range when a monitor connects, and Settings > Displays has a manual override.
+- Fix: after a fast slider drag, slow monitor firmware could stay on an older brightness than the slider shows. Umbra now re-sends the final value once the drag ends.
+- Fix: an external monitor could come back without DDC control after a wake or reconnect. Umbra now checks again for a few seconds.
+- Fix: Umbra could give an unrelated screen another monitor's DDC link. Links now need a matching vendor or product unless the pairing is certain.
+- Tested against a DDC monitor simulator, a zoo of 2,000 simulated monitors, and virtual screens, so fixes are checked without the monitor.
 
 ## 1.0.1
 
