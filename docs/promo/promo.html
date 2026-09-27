@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Umbra promo loop</title>
 <!--
-  Umbra promo loop: 1440x1440, 16 s (120 BPM, 8 bars, 32 beats), silent.
+  Umbra promo loop: 1440x1440, 18 s (120 BPM, 9 bars, 36 beats), silent.
   Everything is a pure function of time inside seek(t). No CSS transitions, no timers, no state between frames.
   Springs are closed-form step responses. A channel that changes target many times is the sum of one spring
   per change, extended over the previous cycle, so the loop's last frame flows into its first.
@@ -35,7 +35,7 @@
 </div>
 <script>
 "use strict";
-const P = 16;              // loop length in seconds
+const P = 18;              // loop length in seconds (36 beats)
 const BEAT = 0.5;          // 120 BPM
 const b = n => (n - 1) * BEAT;   // start time of beat n (1-based)
 const ACCENT = "#0A84FF", LABEL = "#1D1D1F", SECOND = "#6E6E73", YELLOW = "#FFCC00", INDIGO = "#5E5CE6";
@@ -139,27 +139,30 @@ const CAP = { w: 200, h: 96, r: 48 };
 
 // ---------------------------------------------------------------- timeline channels
 // Camera (response 0.6, damping 1.0)
-const camZ = ch(2.2, [[b(4), 1.25], [b(17), 1.6], [b(25), 1.0], [b(29), 1.25], [b(31), 2.2]], CAM);
+const camZ = ch(2.2, [[b(4), 1.25], [b(17), 1.6], [b(25), 1.0], [b(33), 1.25], [b(35), 2.2]], CAM);
 
 // Hero glass: the one element that morphs through every state.
-const heroW = ch(CAP.w, [[b(4), CARD.w], [b(17), OSD.w], [b(21), TOG.w], [b(25), DESK.mac.w], [b(29), SIRI.w], [b(31), CAP.w]]);
-const heroH = ch(CAP.h, [[b(4), CARD.h], [b(8) + 0.05, CARD.hMoon], [b(13), CARD.h], [b(17), OSD.h], [b(21), TOG.h], [b(25), DESK.mac.h], [b(29), SIRI.h], [b(31), CAP.h]]);
-const heroR = ch(CAP.r, [[b(4), CARD.r], [b(17), OSD.r], [b(21), TOG.r], [b(25), DESK.mac.r], [b(29), SIRI.r], [b(31), CAP.r]]);
+const heroW = ch(CAP.w, [[b(4), CARD.w], [b(17), OSD.w], [b(21), TOG.w], [b(25), DESK.mac.w], [b(33), SIRI.w], [b(35), CAP.w]]);
+const heroH = ch(CAP.h, [[b(4), CARD.h], [b(8) + 0.05, CARD.hMoon], [b(13), CARD.h], [b(17), OSD.h], [b(21), TOG.h], [b(25), DESK.mac.h], [b(33), SIRI.h], [b(35), CAP.h]]);
+const heroR = ch(CAP.r, [[b(4), CARD.r], [b(17), OSD.r], [b(21), TOG.r], [b(25), DESK.mac.r], [b(33), SIRI.r], [b(35), CAP.r]]);
 const heroX = ch(C, []);
-const heroY = ch(C, [[b(25), DESK.macY], [b(29), C]]);
+const heroY = ch(C, [[b(25), DESK.macY], [b(33), C]]);
 const heroSwell = ch(0, [[b(3), 0.1, ...PRESS], [b(3) + 0.18, 0, ...PRESS]]);
 const heroRim = ch(0, [[b(2), 0.5, ...SNAP], [b(4), 0, ...SNAP]]);
 
 // Side tiles split out of the hero like droplets, then merge back into the Siri capsule.
-const tileLX = ch(C, [[b(25), DESK.lx], [b(29), C - 150], [b(29) + 0.5, C]]);
-const tileLY = ch(C, [[b(25), DESK.my], [b(29), C]]);
-const tileLW = ch(0, [[b(25) - 0.05, DESK.mon.w], [b(29), 120], [b(29) + 0.45, 0]]);
-const tileLH = ch(0, [[b(25) - 0.05, DESK.mon.h], [b(29), 90], [b(29) + 0.45, 0]]);
-const tileRX = ch(C, [[b(25), DESK.rx], [b(29), C + 150], [b(29) + 0.5, C]]);
-const tileRY = ch(C, [[b(25), DESK.my], [b(29), C]]);
-const tileRW = ch(0, [[b(25) - 0.05, DESK.mon.w], [b(29), 120], [b(29) + 0.45, 0]]);
-const tileRH = ch(0, [[b(25) - 0.05, DESK.mon.h], [b(29), 90], [b(29) + 0.45, 0]]);
+const tileLX = ch(C, [[b(25), DESK.lx], [b(33), C - 150], [b(33) + 0.5, C]]);
+const tileLY = ch(C, [[b(25), DESK.my], [b(33), C]]);
+const tileLW = ch(0, [[b(25) - 0.05, DESK.mon.w], [b(33), 120], [b(33) + 0.45, 0]]);
+const tileLH = ch(0, [[b(25) - 0.05, DESK.mon.h], [b(33), 90], [b(33) + 0.45, 0]]);
+const tileRX = ch(C, [[b(25), DESK.rx], [b(33), C + 150], [b(33) + 0.5, C]]);
+const tileRY = ch(C, [[b(25), DESK.my], [b(33), C]]);
+const tileRW = ch(0, [[b(25) - 0.05, DESK.mon.w], [b(33), 120], [b(33) + 0.45, 0]]);
+const tileRH = ch(0, [[b(25) - 0.05, DESK.mon.h], [b(33), 90], [b(33) + 0.45, 0]]);
 const tileRSwell = ch(0, [[b(26), 0.08, ...PRESS], [b(26) + 0.16, 0, ...PRESS], [b(28), 0.08, ...PRESS], [b(28) + 0.16, 0, ...PRESS]]);
+// Away mode (beats 29-32): no input, screens fade down, then the monitors go black while the MacBook stays
+// dimly on with an agent running. The pointer comes back and every screen springs back on.
+const awayDim = ch(0, [[b(30), 0.65, 0.7, 1], [b(31), 1, 0.4, 1], [b(32) + 0.05, 0, ...PRESS]]);
 const blackOut = ch(0, [[b(27), 1, 0.3, 1], [b(28), 0, 0.3, 1]]);
 
 // Pointer (world coordinates). Snap moves use response 0.3, glides use the morph spring.
@@ -170,14 +173,16 @@ const px = ch(1120, [[0.05, 760, 0.55, 0.9], [b(4), 800], [b(5), 937, ...SNAP],
   [b(13) + 0.1, segX(1), ...SNAP], [b(14) + 0.3, segX(2), ...SNAP],
   [b(17), 990], [b(21), knobOff, ...SNAP], [b(22) + 0.45, knobOn + 8, ...LEAD],
   [b(24) + 0.2, 1000], [b(25), DESK.rx + DESK.mon.w / 2 - 33, ...SNAP],
-  [b(29) + 0.2, 1040], [b(30) + 0.5, 1120, 0.6, 0.95]]);
+  [b(29), 1330, 0.7, 0.95], [b(32) - 0.1, DESK.rx - 60, 0.35, 0.9],
+  [b(33) + 0.2, 1040], [b(34) + 0.5, 1120, 0.6, 0.95]]);
 const py = ch(1090, [[0.05, 735, 0.55, 0.9], [b(4), 800], [b(5), cardTop(CARD.h) + 354, ...SNAP],
   [b(8) + 0.3, cardTop(CARD.hMoon) + 414, ...SNAP],
   [b(12) + 0.05, cardTop(CARD.hMoon) + 354, ...SNAP], [b(13), cardTop(CARD.h) + 354, 0.45, 0.86],
   [b(13) + 0.1, cardTop(CARD.h) + 128, ...SNAP],
   [b(17), 880], [b(21), C + 4, ...SNAP],
   [b(24) + 0.2, 880], [b(25), DESK.my + DESK.mon.h / 2 - 25, ...SNAP],
-  [b(29) + 0.2, 1000], [b(30) + 0.5, 1090, 0.6, 0.95]]);
+  [b(29), 1300, 0.7, 0.95], [b(32) - 0.1, DESK.my + 40, 0.35, 0.9],
+  [b(33) + 0.2, 1000], [b(34) + 0.5, 1090, 0.6, 0.95]]);
 const pointerPress = ch(0, [[b(3), 1, ...PRESS], [b(3) + 0.15, 0, ...PRESS],
   [b(6), 1, ...PRESS], [b(8) + 0.25, 0, ...PRESS], [b(9), 1, ...PRESS], [b(12), 0, ...PRESS],
   [b(12) + 0.25, 1, ...PRESS], [b(13) + 0.05, 0, ...PRESS],
@@ -227,10 +232,10 @@ const selSeg = t => (t >= b(16) && t < b(19)) ? 2 : (t >= b(14) && t < b(19)) ? 
 const knobLead = ch(knobOff, [[b(23), knobOn, ...LEAD], [b(25) + 0.2, knobOff, ...LEAD]]);
 const knobTrail = ch(knobOff, [[b(23), knobOn, ...TRAIL], [b(25) + 0.2, knobOff, ...TRAIL]]);
 const lensGrow = ch(0, [[b(22), 1, ...PRESS], [b(24), 0, ...PRESS]]);
-const nightOn = ch(0, [[b(23), 1, 0.7, 1], [b(30), 0, 0.7, 1]]);
+const nightOn = ch(0, [[b(23), 1, 0.7, 1], [b(34), 0, 0.7, 1]]);
 const moonMorph = ch(0, [[b(24), 1], [b(25) + 0.2, 0]]);
 const keyPress = ch(0, [[b(18), 1, ...PRESS], [b(18) + 0.12, 0, ...PRESS], [b(19), 1, ...PRESS], [b(19) + 0.12, 0, ...PRESS], [b(20), 1, ...PRESS], [b(20) + 0.12, 0, ...PRESS]]);
-const checkDraw = ch(0, [[b(30), 1], [b(31) + 0.3, 0]]);
+const checkDraw = ch(0, [[b(34), 1], [b(35) + 0.3, 0]]);
 
 // Screen exposure: like a real display, brightness dims everything on screen (glass, text, wallpaper),
 // below 0% sinks it close to dark, and Night Mode warms it. Applied as one multiply over the whole frame.
@@ -495,6 +500,8 @@ const rays = gTog.querySelector("#rays"), disc = gTog.querySelector("#disc"), cu
 const togTrack = el(world, "", "border-radius:38px");
 const togOff = el(world, `<div class="${T.body} sec" style="font-size:26px;text-align:right">Off</div>`);
 const togOnTxt = el(world, `<div class="${T.label}" style="font-size:26px;text-align:right;color:${ACCENT}">On</div>`);
+const awayPill = el(world, `<div style="display:flex;align-items:center;justify-content:center;gap:10px;height:100%">${svg("power", 22, LABEL)}<span class="${T.label}" style="font-size:24px">Away · Mac stays awake</span></div>`,
+  "border-radius:30px;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,0.12)");
 const nightPill = el(world, `<div style="display:flex;align-items:center;justify-content:center;gap:10px;height:100%">${svg("moon", 24, INDIGO)}<span class="${T.label}" style="font-size:24px">Night Mode on</span></div>`,
   "border-radius:30px;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,0.12)");
 const togKnob = el(world, "", "border-radius:32px;box-shadow:0 1px 3px rgba(0,0,0,0.2)");
@@ -512,7 +519,10 @@ function tile(name, kind) {
       ${[0, 1, 2, 3, 4].map(k => `<div style="position:absolute;left:64px;top:${24 + k * 17}px;width:${[110, 100, 80, 104, 60][k]}px;height:5px;border-radius:3px;background:#E1E1E6"></div>`).join("")}</div>`,
     sam: `<div style="position:absolute;left:120px;top:28px;width:180px;height:112px;border-radius:7px;background:#fff;box-shadow:0 6px 16px rgba(0,0,0,0.25)">${lights}
       ${["#2BB3B1", "#7B5CFF", "#FFB38A", "#1B3A8C", "#5AC8FA", "#FF9F0A", "#34C759", "#AF52DE"].map((c, k) => `<div style="position:absolute;left:${10 + (k % 4) * 41}px;top:${22 + Math.floor(k / 4) * 44}px;width:36px;height:38px;border-radius:4px;background:${c};opacity:0.85"></div>`).join("")}</div>`,
-    mac: `<div style="position:absolute;left:${sw / 2 - 30}px;top:0;width:60px;height:9px;border-radius:0 0 5px 5px;background:#0E0E10"></div>
+    mac: `<div style="position:absolute;left:24px;top:22px;width:150px;height:96px;border-radius:6px;background:#1C1C1E;box-shadow:0 6px 16px rgba(0,0,0,0.3)">
+        <div style="position:absolute;left:7px;top:6px;display:flex;gap:3px">${["#FF5F57", "#FEBC2E", "#28C840"].map(c => `<div style="width:5px;height:5px;border-radius:3px;background:${c}"></div>`).join("")}</div>
+        ${[0, 1, 2, 3, 4].map(k => `<div class="tl" style="position:absolute;left:10px;top:${22 + k * 13}px;width:0;height:5px;border-radius:3px;background:${k === 4 ? "#30D158" : "#8E8E93"}"></div>`).join("")}</div>
+      <div style="position:absolute;left:${sw / 2 - 30}px;top:0;width:60px;height:9px;border-radius:0 0 5px 5px;background:#0E0E10"></div>
       <div style="position:absolute;left:${sw / 2 - 62}px;top:${sh - 22}px;width:124px;height:17px;border-radius:6px;background:rgba(255,255,255,0.28);display:flex;gap:4px;padding:3px 5px;box-sizing:border-box">
       ${["#4A90E2", "#34C759", "#FF9F0A", "#AF52DE", "#FF375F", "#5AC8FA"].map(c => `<div style="width:11px;height:11px;border-radius:3px;background:${c}"></div>`).join("")}</div>`,
   }[kind];
@@ -599,7 +609,7 @@ function seek(tIn) {
   // ---- content
   const br = brightness(t);
   // Menu bar icon
-  const sIcon = swap(t, b(31) + 0.35, b(4));
+  const sIcon = swap(t, b(35) + 0.35, b(4));
   if (applySwap(gIcon, sIcon)) { place(gIcon, C, C, 64, 64); lvlFill.setAttribute("y", (5.8 + 12.4 * (1 - br / 100)).toFixed(3)); }
 
   // Card
@@ -664,7 +674,10 @@ function seek(tIn) {
   togTrack.style.display = "none";
   if (applySwap(togOff, sTog && swap(t, b(21), b(23)))) place(togOff, trackX - 64 - 60, C, 90, 36);
   if (applySwap(togOnTxt, sTog && swap(t, b(23), b(25)))) place(togOnTxt, trackX - 64 - 60, C, 90, 36);
-  if (applySwap(nightPill, swap(t, b(25) + 0.2, b(29)))) place(nightPill, C, DESK.my - DESK.mon.h / 2 - 56, 260, 60);
+  const pillY = DESK.my - DESK.mon.h / 2 - 56;
+  const sNight = swap(t, b(25) + 0.2, b(29) + 0.4) || swap(t, b(32) + 0.25, b(33));
+  if (applySwap(nightPill, sNight)) place(nightPill, C, pillY, 260, 60);
+  if (applySwap(awayPill, swap(t, b(29) + 0.4, b(32) + 0.2))) place(awayPill, C, pillY, 330, 60);
   if (applySwap(togKnob, sTog)) {
     const lgv = lensGrow(t), kx = (kL + kR) / 2;
     place(togKnob, kx, C, 64, 64);
@@ -674,19 +687,26 @@ function seek(tIn) {
 
   // Desk of mock screens
   const tileGeo = [[tileLX(t), tileLY(t), lw], [hx, hy, hw * sw], [tileRX(t), tileRY(t), rw * rsw]];
-  const sTiles = swap(t, b(25) + 0.1, b(29));
+  const sTiles = swap(t, b(25) + 0.1, b(33));
   const nm = nightOn(t);
   tiles.forEach((tl, i) => {
     const [x, y, w] = tileGeo[i];
     if (!applySwap(tl.g, sTiles && w > 60 ? sTiles : null)) return;
     place(tl.g, x, y, tl.D.w, tl.D.h);
     // The whole frame already carries brightness and Night Mode; BlackOut turns only the Samsung pure black.
-    tl.dark.style.opacity = (i === 2 ? clamp(blackOut(t), 0, 1) : 0).toFixed(3);
+    const aw = clamp(awayDim(t), 0, 1);
+    const awayLevel = i === 1 ? 0.55 * aw : aw;          // the MacBook stays dimly on so you can glance at the agent
+    tl.dark.style.opacity = Math.max(i === 2 ? clamp(blackOut(t), 0, 1) : 0, awayLevel).toFixed(3);
+    if (i === 1) {
+      // The agent keeps working: its terminal lines grow while you're away.
+      const lines = tl.scr.querySelectorAll(".tl");
+      lines.forEach((ln, k) => { ln.style.width = `${(clamp((t - b(25) - k * 0.55) / 0.5, 0, 1) * [96, 70, 110, 84, 58][k]).toFixed(1)}px`; });
+    }
     if (i === 2) tl.lab.textContent = blackOut(t) > 0.5 ? "C27F390 · off" : "C27F390";
   });
 
   // Siri
-  const sSiri = swap(t, b(29) + 0.02, b(30));
+  const sSiri = swap(t, b(33) + 0.02, b(34));
   if (applySwap(gSiri, sSiri)) {
     place(gSiri, C - SIRI.w / 2 + 40 + 22, C, 44, 44);
     siriBars.forEach((bar, i) => { bar.style.height = `${(10 + 18 * Math.abs(Math.sin(t * 7.3 + i * 1.3))).toFixed(1)}px`; });
@@ -695,10 +715,10 @@ function seek(tIn) {
   WORDS.forEach((w, i) => {
     const e = siriWords[i];
     const wWidth = [66, 44, 76, 76][i];
-    if (applySwap(e, swap(t, b(29) + 0.04 + i * 0.1, b(30)))) place(e, wx + wWidth / 2, C, wWidth, 40);
+    if (applySwap(e, swap(t, b(33) + 0.04 + i * 0.1, b(34)))) place(e, wx + wWidth / 2, C, wWidth, 40);
     wx += wWidth + 10;
   });
-  if (applySwap(gDone, swap(t, b(30), b(31)))) {
+  if (applySwap(gDone, swap(t, b(34), b(35)))) {
     place(gDone, C - SIRI.w / 2 + 40 + 160, C, 320, 40);
     chk.style.strokeDasharray = "1"; chk.style.strokeDashoffset = (1 - clamp(checkDraw(t), 0, 1)).toFixed(4);
   }

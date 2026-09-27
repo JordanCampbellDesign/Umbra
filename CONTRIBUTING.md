@@ -37,3 +37,10 @@ cd scripts/promo && npm install && node render.mjs sheet   # one still per beat,
 node render.mjs video                                      # 1440x1440 60 fps MP4
 ../../scripts/promo/make-webp.sh                           # 720px WebP for the README (needs brew install webp)
 ```
+
+## End-to-end tests
+
+Two suites run against the real app. Both change your displays for a moment and put them back.
+
+- **CLI suite:** `scripts/e2e/cli_e2e.py`. It restarts the installed app (`~/Applications/Umbra.app`, or pass `--app`) and checks each change through `umbra state`: brightness and contrast round trips, below 0%, mode switch, Night Mode, Away mode and its keep-awake assertion, link safety, and that commands without the app's token are rejected. It ends by checking every display is back where it started. Add `--disruptive` to also turn an external monitor off and on with BlackOut. Results go to `test-results/e2e-cli.json`.
+- **UI suite:** `scripts/e2e/ui_e2e.sh`. It runs XCUITest against a fresh build: it opens the main window and drives the mode picker, a brightness slider, and the Away mode setting through accessibility. It quits your installed copy first and reopens it after. The first run asks for your password to allow UI automation.
