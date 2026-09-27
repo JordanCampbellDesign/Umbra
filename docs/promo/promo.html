@@ -30,6 +30,7 @@
 <div id="stage">
   <canvas id="gl" width="1440" height="1440"></canvas>
   <div id="world"></div>
+  <div id="tone" style="position:absolute;inset:0;mix-blend-mode:multiply;pointer-events:none"></div>
   <div id="screen"></div>
 </div>
 <script>
@@ -231,11 +232,12 @@ const moonMorph = ch(0, [[b(24), 1], [b(25) + 0.2, 0]]);
 const keyPress = ch(0, [[b(18), 1, ...PRESS], [b(18) + 0.12, 0, ...PRESS], [b(19), 1, ...PRESS], [b(19) + 0.12, 0, ...PRESS], [b(20), 1, ...PRESS], [b(20) + 0.12, 0, ...PRESS]]);
 const checkDraw = ch(0, [[b(30), 1], [b(31) + 0.3, 0]]);
 
-// Wallpaper exposure: brightness dims it, below-0% sinks it further, Night Mode warms it.
+// Screen exposure: like a real display, brightness dims everything on screen (glass, text, wallpaper),
+// below 0% sinks it close to dark, and Night Mode warms it. Applied as one multiply over the whole frame.
 function exposure(t) {
   const br = brightness(t), z = subzero(t), n = nightOn(t);
-  const lum = (0.42 + 0.58 * br / 100) * (1 - 0.6 * z / 100);
-  return [lum * lerp(1, 0.86, n), lum * lerp(1, 0.72, n), lum * lerp(1, 0.52, n)];
+  const lum = (0.3 + 0.7 * br / 100) * (1 - 0.68 * z / 100) * lerp(1, 0.92, n);
+  return [lum, lum * lerp(1, 0.84, n), lum * lerp(1, 0.62, n)];
 }
 
 // ---------------------------------------------------------------- wallpaper (macOS Tahoe style color fields)
@@ -491,6 +493,10 @@ gTog.innerHTML = `<svg style="position:absolute;left:0;top:0" width="44" height=
   <div class="${T.label}" style="position:absolute;left:62px;top:0;font-size:30px;line-height:44px">Night Mode</div>`;
 const rays = gTog.querySelector("#rays"), disc = gTog.querySelector("#disc"), cut = gTog.querySelector("#cut");
 const togTrack = el(world, "", "border-radius:38px");
+const togOff = el(world, `<div class="${T.body} sec" style="font-size:26px;text-align:right">Off</div>`);
+const togOnTxt = el(world, `<div class="${T.label}" style="font-size:26px;text-align:right;color:${ACCENT}">On</div>`);
+const nightPill = el(world, `<div style="display:flex;align-items:center;justify-content:center;gap:10px;height:100%">${svg("moon", 24, INDIGO)}<span class="${T.label}" style="font-size:24px">Night Mode on</span></div>`,
+  "border-radius:30px;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,0.12)");
 const togKnob = el(world, "", "border-radius:32px;box-shadow:0 1px 3px rgba(0,0,0,0.2)");
 
 // Desk: each glass frame holds a small desktop (wallpaper, menu bar, a window) and a chin with its name and power button.
@@ -571,7 +577,8 @@ function seek(tIn) {
   shapes.forEach((s, i) => { R.set([s[0], s[1], s[2], s[3]], i * 4); Pp.set([s[4], s[5], s[6], s[7]], i * 4); });
   gl.uniform4fv(U("uRect"), R); gl.uniform4fv(U("uP"), Pp);
   gl.uniform1f(U("uK"), 24 * z); gl.uniform1f(U("uZ"), z);
-  const ex = exposure(t); gl.uniform3f(U("uExpo"), ex[0], ex[1], ex[2]);
+  const ex = exposure(t); gl.uniform3f(U("uExpo"), 1, 1, 1);
+  document.getElementById("tone").style.background = `rgb(${ex.map(v => Math.round(clamp(v, 0, 1) * 255)).join(",")})`;
   // Wallpaper drift: at most 12 px per bar, looping.
   const dx = 14 * Math.sin(2 * Math.PI * t / P), dy = 10 * Math.cos(2 * Math.PI * t / P);
   gl.uniform4f(U("uWall"), dx, dy, wz, 0);
@@ -655,6 +662,9 @@ function seek(tIn) {
     cut.setAttribute("cx", (21 - 4.2 * m).toFixed(3)); cut.setAttribute("cy", (3 + 3.2 * m).toFixed(3));
   }
   togTrack.style.display = "none";
+  if (applySwap(togOff, sTog && swap(t, b(21), b(23)))) place(togOff, trackX - 64 - 60, C, 90, 36);
+  if (applySwap(togOnTxt, sTog && swap(t, b(23), b(25)))) place(togOnTxt, trackX - 64 - 60, C, 90, 36);
+  if (applySwap(nightPill, swap(t, b(25) + 0.2, b(29)))) place(nightPill, C, DESK.my - DESK.mon.h / 2 - 56, 260, 60);
   if (applySwap(togKnob, sTog)) {
     const lgv = lensGrow(t), kx = (kL + kR) / 2;
     place(togKnob, kx, C, 64, 64);
@@ -670,12 +680,8 @@ function seek(tIn) {
     const [x, y, w] = tileGeo[i];
     if (!applySwap(tl.g, sTiles && w > 60 ? sTiles : null)) return;
     place(tl.g, x, y, tl.D.w, tl.D.h);
-    // The desktops dim and warm with the rest; BlackOut turns the Samsung pure black.
-    // Brightness and below-0% dim the desktops; Night Mode only warms them (the sepia filter below).
-    const lumOnly = (0.42 + 0.58 * brightness(t) / 100) * (1 - 0.6 * subzero(t) / 100);
-    const dim = 1 - Math.min(1, lumOnly / 0.98);
-    tl.dark.style.opacity = (i === 2 ? Math.max(dim, clamp(blackOut(t), 0, 1)) : dim).toFixed(3);
-    tl.scr.style.filter = nm > 0.01 ? `sepia(${(0.45 * nm).toFixed(3)}) saturate(${(1 - 0.15 * nm).toFixed(3)})` : "none";
+    // The whole frame already carries brightness and Night Mode; BlackOut turns only the Samsung pure black.
+    tl.dark.style.opacity = (i === 2 ? clamp(blackOut(t), 0, 1) : 0).toFixed(3);
     if (i === 2) tl.lab.textContent = blackOut(t) > 0.5 ? "C27F390 · off" : "C27F390";
   });
 
