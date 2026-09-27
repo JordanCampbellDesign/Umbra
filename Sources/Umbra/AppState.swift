@@ -148,11 +148,14 @@ final class AppState: ObservableObject {
             if let i { used.insert(i) }
         }
 
+        let needLinks = online.filter { id in !displays.contains { $0.id == id } && CGDisplayIsBuiltin(id) == 0 && !Private.canChangeBrightness(id) }
+        let allowGuess = needLinks.count == 1 && links.indices.filter { !used.contains($0) }.count == 1
+
         var result: [Display] = []
         for id in online {
             if let existing = displays.first(where: { $0.id == id }) { result.append(existing); continue }
             var link: AVLink?
-            if CGDisplayIsBuiltin(id) == 0, !Private.canChangeBrightness(id), let i = DDC.match(id, links: links, used: used) {
+            if CGDisplayIsBuiltin(id) == 0, !Private.canChangeBrightness(id), let i = DDC.match(id, links: links, used: used, allowGuess: allowGuess) {
                 used.insert(i)
                 link = links[i]
             }
@@ -165,6 +168,7 @@ final class AppState: ObservableObject {
         result.sort { ($0.isBuiltin ? 0 : 1, $0.id) < ($1.isBuiltin ? 0 : 1, $1.id) }
         displays = result
         applyDeskSetup()
+        if displays.contains(where: needsLink) { scheduleLinkRetry(attempt: 0) }
         cancellables = []
         for d in displays {
             d.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
@@ -190,6 +194,43 @@ final class AppState: ObservableObject {
         guard mode != settings.mode else { return }
         settings.mode = mode
         OSD.shared.showText("\(mode.label) mode for this desk", symbol: mode.symbol)
+    }
+
+    // MARK: DDC links after a reconnect
+
+    /// External monitors without Apple Native control should have a DDC link. When one doesn't, it's often because
+    /// macOS publishes the monitor's DDC service a moment after the screen itself (for example after waking).
+    private func needsLink(_ d: Display) -> Bool {
+        !d.isBuiltin && d.link == nil && !d.blackedOut && !Private.canChangeBrightness(d.id)
+    }
+
+    private var linkRetry: DispatchWorkItem?
+
+    private func scheduleLinkRetry(attempt: Int) {
+        let delays: [Double] = [2, 5, 10]
+        guard attempt < delays.count else { return }
+        linkRetry?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            let waiting = self.displays.filter(self.needsLink)
+            guard !waiting.isEmpty else { return }
+            self.links = DDC.discoverLinks()
+            var used = Set<Int>()
+            for d in self.displays {
+                guard let l = d.link else { continue }
+                if let i = self.links.indices.first(where: { !used.contains($0) && self.links[$0].vendor == l.vendor && self.links[$0].product == l.product && self.links[$0].serial == l.serial }) { used.insert(i) }
+            }
+            let allowGuess = waiting.count == 1 && self.links.indices.filter { !used.contains($0) }.count == 1
+            for d in waiting {
+                if let i = DDC.match(d.id, links: self.links, used: used, allowGuess: allowGuess) {
+                    used.insert(i)
+                    d.attach(self.links[i])
+                }
+            }
+            if self.displays.contains(where: self.needsLink) { self.scheduleLinkRetry(attempt: attempt + 1) }
+        }
+        linkRetry = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delays[attempt], execute: work)
     }
 
     // MARK: Targets

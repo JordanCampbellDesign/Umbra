@@ -153,17 +153,26 @@ enum DDC {
     }
 
     /// Choose the best link for a CoreGraphics display by vendor, product, and serial.
-    static func match(_ id: CGDirectDisplayID, links: [AVLink], used: Set<Int>) -> Int? {
-        let v = CGDisplayVendorNumber(id), m = CGDisplayModelNumber(id), s = CGDisplaySerialNumber(id)
+    static func match(_ id: CGDirectDisplayID, links: [AVLink], used: Set<Int>, allowGuess: Bool) -> Int? {
+        bestLink(vendor: CGDisplayVendorNumber(id), product: CGDisplayModelNumber(id), serial: CGDisplaySerialNumber(id),
+                 links: links.map { ($0.vendor, $0.product, $0.serial) }, used: used, allowGuess: allowGuess)
+    }
+
+    /// Pick the link whose vendor, product, and serial best match a display. A link that matches nothing is only
+    /// used when `allowGuess` is true: exactly one free link and one monitor without a link, so the pairing is certain.
+    /// Guessing more widely gave unrelated screens (for example virtual displays) another monitor's DDC link.
+    static func bestLink(vendor v: UInt32, product m: UInt32, serial s: UInt32,
+                         links: [(UInt32?, UInt32?, UInt32?)], used: Set<Int>, allowGuess: Bool) -> Int? {
         var best: (Int, Int)?
         for (i, l) in links.enumerated() where !used.contains(i) {
             var score = 0
-            if l.vendor == v { score += 1 }
-            if l.product == m { score += 2 }
-            if s != 0, l.serial == s { score += 4 }
+            if l.0 == v { score += 1 }
+            if l.1 == m { score += 2 }
+            if s != 0, l.2 == s { score += 4 }
             if best == nil || score > best!.1 { best = (i, score) }
         }
-        return best?.0
+        guard let (i, score) = best else { return nil }
+        return score > 0 || allowGuess ? i : nil
     }
 
     static func checksum(_ start: UInt8, _ bytes: [UInt8]) -> UInt8 {

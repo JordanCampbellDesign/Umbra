@@ -266,6 +266,14 @@ final class Display: ObservableObject, Identifiable {
         }
     }
 
+    /// Give a display its DDC link after it's already showing, for example when the link appears late after a reconnect.
+    func attach(_ link: AVLink) {
+        self.link = link
+        objectWillChange.send()
+        probeRange(link)
+        applyAll()
+    }
+
     /// Learn each control's real maximum once, in the background, then re-send the current values scaled to it.
     /// Without this, a monitor whose brightness goes to 255 would top out at 100/255 (about 39%).
     private func probeRange(_ link: AVLink) {

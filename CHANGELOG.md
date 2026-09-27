@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Fix: an external monitor could come back without DDC control after a reconnect or wake, because macOS publishes its DDC service a moment late. Umbra now checks again for a few seconds.
+- Fix: Umbra could give an unrelated screen (for example a virtual display) another monitor's DDC link. Links now need a matching vendor or product unless the pairing is certain.
+
 - Fix: monitors whose brightness, contrast, or volume range isn't 0 to 100 (for example 0 to 255) couldn't reach full brightness. Umbra now learns each control's range when the monitor connects, and Settings > Displays has a manual override.
 
 - Optional, anonymous monitor diagnostics (off by default) to help fix monitors that don't work, and "Report a problem with a monitor", which opens a pre-filled GitHub issue.

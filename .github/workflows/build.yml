@@ -29,3 +29,12 @@ jobs:
         with:
           name: Umbra.app
           path: .xcbuild/Build/Products/Release/Umbra.app
+
+  virtual-displays:
+    # Experimental: hosted runners may not allow virtual screens. Failures here don't block a merge.
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Virtual screen tests
+        run: scripts/e2e/virtual_displays.sh

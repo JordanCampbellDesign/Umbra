@@ -18,6 +18,8 @@ let package = Package(
                 .linkedFramework("CoreAudio"),
             ]
         ),
-        .testTarget(name: "UmbraTests", dependencies: ["Umbra"], path: "Tests/UmbraTests", resources: [.copy("Monitors")]),
+        // Test-only: creates virtual screens through a private macOS API. The app never links it.
+        .target(name: "VirtualDisplay", path: "Sources/VirtualDisplay"),
+        .testTarget(name: "UmbraTests", dependencies: ["Umbra", "VirtualDisplay"], path: "Tests/UmbraTests", resources: [.copy("Monitors")]),
     ]
 )

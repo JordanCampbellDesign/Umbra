@@ -69,7 +69,18 @@ After merging, run the `Release` workflow from the Actions tab with the new vers
 
 The workflow signs with the same certificate as your local builds, so macOS keeps each user's permissions across the update.
 
-## Not simulated yet
+## Virtual screens
 
-- **Virtual displays.** macOS can create virtual screens (the private `CGVirtualDisplay`, used by tools like DeskPad). That would let tests cover display detection, arrangement, gamma, and BlackOut without real monitors. It's the next step for the simulator.
+`scripts/e2e/virtual_displays.sh` runs Umbra's display code against virtual screens: real displays as far as macOS knows, made in software through the private `CGVirtualDisplay` API (the one DeskPad and BetterDisplay use). The bridge lives in `Sources/VirtualDisplay`, which only the tests link. It checks:
+
+- a new monitor is detected, with its brand (for Siri) and the right control method;
+- software dimming really changes the screen's gamma, including Away mode's black;
+- BlackOut turns the screen off (disconnect, or Umbra's mirror-and-black fallback) and back on;
+- swapping two screens moves them, and "Go back" restores the arrangement.
+
+It only touches the screens it creates. It keeps the displays awake while it runs, because macOS postpones removing virtual screens while displays sleep, and it runs each test in its own process, because after a disconnect macOS can hold a virtual screen until the process exits. These tests found that Umbra gave unrelated screens another monitor's DDC link; links now need a real match unless the pairing is certain.
+
+## Not simulated
+
 - **Real DDC timing.** The simulator doesn't model the wire delays monitors need; tests run with `DDC.waitScale = 0`.
+- **DDC on virtual screens.** Virtual screens have no DDC link, so DDC is covered by the monitor simulator and zoo instead.

@@ -276,6 +276,9 @@ final class ArrangementConfirm: ObservableObject {
         panel?.orderFrontRegardless()
     }
 
+    /// True while the "Keep this screen arrangement?" prompt is up.
+    var isAsking: Bool { snapshot != nil }
+
     func keep() { close() }
 
     func revert() {

@@ -59,3 +59,28 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(s.awayMinutes, 5)
     }
 }
+
+final class LinkMatchTests: XCTestCase {
+    let samsung: (UInt32?, UInt32?, UInt32?) = (19501, 3399, 0)
+    let lg: (UInt32?, UInt32?, UInt32?) = (40557, 23313, 0)
+
+    func testMatchesByVendorAndProduct() {
+        XCTAssertEqual(DDC.bestLink(vendor: 40557, product: 23313, serial: 0, links: [samsung, lg], used: [], allowGuess: false), 1)
+    }
+
+    /// The bug virtual displays found: an unrelated screen took the Samsung's DDC link.
+    func testUnrelatedDisplayGetsNoLink() {
+        XCTAssertNil(DDC.bestLink(vendor: 4268, product: 41137, serial: 7, links: [samsung], used: [], allowGuess: false))
+    }
+
+    /// A link with no vendor or product info is still used when the pairing is certain.
+    func testUnknownLinkIsUsedOnlyWhenCertain() {
+        let blank: (UInt32?, UInt32?, UInt32?) = (nil, nil, nil)
+        XCTAssertEqual(DDC.bestLink(vendor: 1, product: 2, serial: 0, links: [blank], used: [], allowGuess: true), 0)
+        XCTAssertNil(DDC.bestLink(vendor: 1, product: 2, serial: 0, links: [blank], used: [], allowGuess: false))
+    }
+
+    func testUsedLinksAreSkipped() {
+        XCTAssertNil(DDC.bestLink(vendor: 40557, product: 23313, serial: 0, links: [lg], used: [0], allowGuess: false))
+    }
+}
