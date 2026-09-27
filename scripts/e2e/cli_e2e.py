@@ -90,6 +90,8 @@ def assert_(cond, msg):
 
 restart_app()
 before = state()
+# Run every check in Manual mode, so an adaptive mode can't move values or learn offsets from the tests.
+cli("mode", "manual", check=True)
 builtin = next((d for d in before["displays"] if d["builtin"]), before["displays"][0])
 ddc = next((d for d in before["displays"] if d["method"] == "ddc"), None)
 externals = [d for d in before["displays"] if not d["builtin"]]
@@ -214,16 +216,24 @@ try:
             st = wait_for(lambda s: not next(d for d in s["displays"] if d["uuid"] == ext["uuid"])["blackedOut"], timeout=6)
             assert_(not next(d for d in st["displays"] if d["uuid"] == ext["uuid"])["blackedOut"], "display did not come back")
 finally:
-    # Put everything back the way it was.
+    # Put everything back the way it was: values in Manual mode first, then offsets, then the mode.
     cli("away", "off")
     cli("night", "off")
-    cli("mode", before["mode"])
+    cli("mode", "manual")
     for d in before["displays"]:
         cli("set", d["uuid"], "brightness", d["brightness"])
         cli("set", d["uuid"], "subzero", round(d["subzero"] * 100))
+        cli("set", d["uuid"], "offset", d.get("syncOffset", 0))
         if d["method"] == "ddc":
             cli("set", d["uuid"], "contrast", d["contrast"])
+    cli("mode", before["mode"])
 
+time.sleep(1)
+after = state()
+for d0 in before["displays"]:
+    d1 = next((d for d in after["displays"] if d["uuid"] == d0["uuid"]), None)
+    ok = d1 is not None and near(d0["brightness"], d1["brightness"], 1.5) and near(d0.get("syncOffset", 0), d1.get("syncOffset", 0), 0.01)
+    results.append((f"restored {d0['name']} to how it was", ok, "" if ok else f"before {d0['brightness']}, after {d1 and d1['brightness']}", 0))
 passed = sum(1 for r in results if r[1])
 print()
 for name, ok, msg, secs in results:

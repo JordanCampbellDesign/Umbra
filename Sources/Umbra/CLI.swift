@@ -117,6 +117,7 @@ enum CLI {
                     ["name": d.name, "uuid": d.uuid, "method": d.method.rawValue, "builtin": d.isBuiltin,
                      "brightness": (d.config.brightness * 100).rounded() / 100, "contrast": d.config.contrast,
                      "subzero": (d.config.subzero * 1000).rounded() / 1000, "blackedOut": d.blackedOut,
+                     "syncOffset": d.config.syncOffset,
                      "red": d.config.red, "green": d.config.green, "blue": d.config.blue]
                 },
             ]
@@ -167,6 +168,7 @@ enum CLI {
                     guard let input = val ?? named else { return "error: bad input \(raw)" }
                     d.setInput(input)
                 case "subzero": d.setSubzero(v / 100)
+                case "offset": d.config.syncOffset = max(-100, min(100, v))   // the adaptive-mode offset Umbra learned for this display
                 case "xdr": d.setXDR(raw == "on" || raw == "1")
                 case "xdrlevel": d.setXDRLevel(v / 100)
                 case "red": d.setColor(red: v)
