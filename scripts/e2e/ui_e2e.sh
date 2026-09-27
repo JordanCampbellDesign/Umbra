@@ -9,6 +9,7 @@ command -v xcodegen >/dev/null && xcodegen generate --quiet
 was_running=$(pgrep -x Umbra >/dev/null && echo yes || echo no)
 pkill -x Umbra || true
 status=0
+rm -rf test-results/ui.xcresult
 xcodebuild test -project Umbra.xcodeproj -scheme Umbra -derivedDataPath .xcbuild -resultBundlePath test-results/ui.xcresult 2>&1 \
   | grep -E "Test Case|error:|\*\* TEST|passed|failed" || status=$?
 [ "$was_running" = yes ] && open ~/Applications/Umbra.app
