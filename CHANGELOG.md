@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.3
+
+- Umbra now notices when a monitor ignores its changes. If the monitor still reports its old brightness after a change, the menu says so and offers software dimming. If the monitor can't report its brightness at all, Umbra asks once whether the screen changed and remembers your answer. Found on a Samsung C27F390 connected over HDMI.
+- `umbra set <display> method auto|ddc|gamma|appleNative|network` picks how Umbra controls a display.
+- `umbra state` shows whether Umbra has the Accessibility permission, which the brightness and volume keys need.
+- The UI test script clears the last run's results first, so it runs more than once.
+
 ## 1.0.2
 
 - Optional, anonymous monitor diagnostics (off by default) to help fix monitors that don't work, and "Report a problem with a monitor", which opens a pre-filled GitHub issue.
