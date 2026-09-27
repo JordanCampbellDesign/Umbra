@@ -108,7 +108,7 @@ enum CLI {
         case "state":
             // Machine-readable state for tests and scripts.
             let st: [String: Any] = [
-                "mode": s.settings.mode.rawValue,
+                "mode": s.settings.mode.rawValue, "accessibility": MediaKeys.shared.trusted,
                 "night": NightMode.shared.on,
                 "faceLight": s.faceLightOn,
                 "away": Away.shared.statusText,
