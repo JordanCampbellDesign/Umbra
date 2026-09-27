@@ -38,6 +38,8 @@ node render.mjs video                                      # 1440x1440 60 fps MP
 ../../scripts/promo/make-webp.sh                           # 720px WebP for the README (needs brew install webp)
 ```
 
+The MP4 is not kept in git (each render would add about 6 MB to the history). Upload a new render to the `promo` pre-release with `scripts/promo/publish.sh`. The README links to it there, and only the small WebP lives in the repo.
+
 ## End-to-end tests
 
 Two suites run against the real app. Both change your displays for a moment and put them back.
