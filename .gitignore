@@ -11,3 +11,4 @@ releases/
 scripts/promo/node_modules/
 scripts/promo/package-lock.json
 docs/promo/sheet/
+test-results/

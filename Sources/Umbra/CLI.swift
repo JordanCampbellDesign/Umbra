@@ -24,6 +24,7 @@ enum CLI {
       power <display> on|off           DDC power (monitor standby)
       night on|off|toggle              Night Mode (dim, lower contrast, warm colors)
       open                             Show the main window
+      state                            Print the app's state as JSON
       away now|off|status              Turn screens off now, wake them, or show Away mode
       clean                            Cleaning Mode (black screens, keyboard ignored)
       sleep                            Put the Mac to sleep
@@ -40,9 +41,9 @@ enum CLI {
         if args.first == "help" || args.first == "--help" || args.isEmpty { print(usage); return 0 }
         if args.first == "render" { return Render.run(args.count > 1 ? args[1] : "renders") }
         let running = NSRunningApplication.runningApplications(withBundleIdentifier: AppInfo.bundleID).contains { $0.processIdentifier != getpid() }
-        let readOnly = ["displays", "get"].contains(args[0]) || (args[0] == "ddc" && args.count == 3)
+        let readOnly = ["displays", "get", "state"].contains(args[0]) || (args[0] == "ddc" && args.count == 3)
         let known = ["displays", "get", "set", "ddc", "blackout", "facelight", "xdr", "mode", "preset", "gamma",
-                     "reset-colors", "power", "open", "away", "night", "clean", "sleep", "mirror", "main", "swap", "arrange"]
+                     "reset-colors", "power", "open", "away", "state", "night", "clean", "sleep", "mirror", "main", "swap", "arrange"]
         guard known.contains(args[0]) else { print("error: unknown command \(args[0])\n\n" + usage); return 1 }
         if args[0] == "open" {
             // Launching or reopening the app shows its main window.
@@ -104,6 +105,24 @@ enum CLI {
         func num(_ i: Int) -> Double? { args.count > i ? Double(args[i]) : nil }
 
         switch cmd {
+        case "state":
+            // Machine-readable state for tests and scripts.
+            let st: [String: Any] = [
+                "mode": s.settings.mode.rawValue,
+                "night": NightMode.shared.on,
+                "faceLight": s.faceLightOn,
+                "away": Away.shared.statusText,
+                "awayEnabled": s.settings.awayEnabled,
+                "displays": s.displays.map { d -> [String: Any] in
+                    ["name": d.name, "uuid": d.uuid, "method": d.method.rawValue, "builtin": d.isBuiltin,
+                     "brightness": (d.config.brightness * 100).rounded() / 100, "contrast": d.config.contrast,
+                     "subzero": (d.config.subzero * 1000).rounded() / 1000, "blackedOut": d.blackedOut,
+                     "red": d.config.red, "green": d.config.green, "blue": d.config.blue]
+                },
+            ]
+            guard let data = try? JSONSerialization.data(withJSONObject: st, options: [.sortedKeys]) else { return "error: could not encode state" }
+            return String(decoding: data, as: UTF8.self)
+
         case "displays":
             return s.displays.enumerated().map { i, d in
                 let c = d.config
