@@ -30,15 +30,14 @@ Open an issue with the "Monitor compatibility" template. Include the output of `
 
 ## Promo loop
 
-The README loop is built from `docs/promo/promo.html`, where every frame is a pure function of time. To re-render it:
+The promo video is built from `docs/promo/promo.html`, where every frame is a pure function of time. To re-render it:
 
 ```bash
 cd scripts/promo && npm install && node render.mjs sheet   # one still per beat, for review
 node render.mjs video                                      # 1440x1440 60 fps MP4
-../../scripts/promo/make-webp.sh                           # 720px WebP for the README (needs brew install webp)
 ```
 
-The MP4 is not kept in git (each render would add about 6 MB to the history). Upload a new render to the `promo` pre-release with `scripts/promo/publish.sh`. The README links to it there, and only the small WebP lives in the repo.
+The MP4 is not kept in git (each render would add about 6 MB to the history). Upload a new render to the `promo` pre-release with `scripts/promo/publish.sh`. The README links to it there.
 
 ## End-to-end tests
 
