@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 enum ControlMethod: String, Codable, CaseIterable, Identifiable {
@@ -10,6 +11,26 @@ enum ControlMethod: String, Codable, CaseIterable, Identifiable {
         case .ddc: return "DDC"
         case .network: return "Network"
         case .gamma: return "Gamma (software)"
+        }
+    }
+}
+
+/// Light or dark look for Umbra's own windows. "Match macOS" follows System Settings > Appearance.
+enum AppAppearance: String, Codable, CaseIterable, Identifiable {
+    case system, light, dark
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .system: return "Match macOS"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        }
+    }
+    var nsAppearance: NSAppearance? {
+        switch self {
+        case .system: return nil
+        case .light: return NSAppearance(named: .aqua)
+        case .dark: return NSAppearance(named: .darkAqua)
         }
     }
 }
@@ -203,6 +224,7 @@ struct AppSettings: Codable, Equatable {
     var blackedOut: [UInt32] = []
     var menuIcon = "sun.max.fill"
     var showDockIcon = false
+    var appearance: AppAppearance = .system
     var scrollOnIcon = true
     /// Adaptive mode per desk setup, keyed by the set of connected external monitors.
     var deskModes: [String: AdaptiveMode] = [:]
@@ -231,7 +253,11 @@ enum Store {
         return try? JSONDecoder().decode(T.self, from: d)
     }
 
+    /// Set by `umbra render` in demo mode, so screenshots never change the person's real settings.
+    static var readOnly = false
+
     static func save<T: Encodable>(_ key: String, _ value: T) {
+        guard !readOnly else { return }
         if let d = try? JSONEncoder().encode(value) { defaults.set(d, forKey: key) }
     }
 }

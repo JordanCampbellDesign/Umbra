@@ -32,6 +32,13 @@ struct GeneralTab: View {
                 Text("If the menu bar icon is hidden (for example behind the notch), open Umbra again from Applications or Spotlight to see the main window.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            Section("Appearance") {
+                Picker("Umbra's windows", selection: $state.settings.appearance) {
+                    ForEach(AppAppearance.allCases) { Text($0.label).tag($0) }
+                }
+                Text("Match macOS follows System Settings > Appearance. Choose Light or Dark to keep Umbra that way.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("Keyboard") {
                 Toggle("Brightness keys control external monitors", isOn: $state.settings.mediaKeys)
                 Toggle("Volume keys control monitor speakers when they are the sound output", isOn: $state.settings.volumeKeys)

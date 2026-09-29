@@ -65,6 +65,21 @@ final class Display: ObservableObject, Identifiable {
 
     private func save() { Store.save("display.\(uuid)", config) }
 
+    /// A made-up display for screenshots (`UMBRA_DEMO=1 umbra render`). It has no DDC link and is never saved.
+    init(demoID: CGDirectDisplayID, name: String, builtin: Bool, method: ControlMethod, brightness: Double, contrast: Double = 50, volume: Double = 50) {
+        id = demoID
+        uuid = "demo-\(demoID)"
+        isBuiltin = builtin
+        self.name = name
+        link = nil
+        var c = DisplayConfig()
+        c.method = method
+        c.brightness = brightness
+        c.contrast = contrast
+        c.volume = volume
+        config = c
+    }
+
     // MARK: Capabilities
 
     var method: ControlMethod {

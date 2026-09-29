@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Settings > General > Appearance: keep Umbra's windows light or dark, or match macOS (the default).
+- `UMBRA_DEMO=1 umbra render <folder>` draws the screenshots with an example desk, in light or dark (`UMBRA_DARK=1`), without changing your settings.
+
 ## 1.0.3
 
 - Umbra now notices when a monitor ignores its changes. If the monitor still reports its old brightness after a change, the menu says so and offers software dimming. If the monitor can't report its brightness at all, Umbra asks once whether the screen changed and remembers your answer. Found on a Samsung C27F390 connected over HDMI.

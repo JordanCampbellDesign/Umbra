@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var eventMonitor: Any?
 
     func applicationDidFinishLaunching(_: Notification) {
+        NSApp.appearance = AppState.shared.settings.appearance.nsAppearance
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let b = statusItem.button {
             b.image = NSImage(systemSymbolName: "sun.max.fill", accessibilityDescription: "Umbra")

@@ -6,7 +6,19 @@ enum Render {
     static func run(_ dir: String) -> Int32 {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
-        AppState.shared.refreshDisplays()
+        if ProcessInfo.processInfo.environment["UMBRA_DEMO"] != nil {
+            // A tidy example desk for the website and README, the same every time.
+            Store.readOnly = true
+            let state = AppState.shared
+            state.settings.mode = .manual
+            state.displays = [
+                Display(demoID: 0xDE01, name: "Built-in Display", builtin: true, method: .appleNative, brightness: 72),
+                Display(demoID: 0xDE02, name: "Studio Display", builtin: false, method: .appleNative, brightness: 64),
+                Display(demoID: 0xDE03, name: "Dell U2723QE", builtin: false, method: .ddc, brightness: 58, contrast: 70, volume: 35),
+            ]
+        } else {
+            AppState.shared.refreshDisplays()
+        }
         RunLoop.main.run(until: Date().addingTimeInterval(0.5))
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         let dark = ProcessInfo.processInfo.environment["UMBRA_DARK"] != nil

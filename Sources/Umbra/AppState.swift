@@ -20,6 +20,7 @@ final class AppState: ObservableObject {
             if settings.hotkeys != oldValue.hotkeys { HotkeyCenter.shared.register(settings.hotkeys) }
             if settings.autoBlackOut != oldValue.autoBlackOut { scheduleAutoBlackOut() }
             if settings.showDockIcon != oldValue.showDockIcon { (NSApp.delegate as? AppDelegate)?.updateActivationPolicy() }
+            if settings.appearance != oldValue.appearance { NSApp.appearance = settings.appearance.nsAppearance }
             if settings.subzeroEnabled != oldValue.subzeroEnabled { displays.forEach { $0.applyGamma() } }
         }
     }
