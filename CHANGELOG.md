@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.4
 
 - Settings > General > Appearance: keep Umbra's windows light or dark, or match macOS (the default).
 - `UMBRA_DEMO=1 umbra render <folder>` draws the screenshots with an example desk, in light or dark (`UMBRA_DARK=1`), without changing your settings.
