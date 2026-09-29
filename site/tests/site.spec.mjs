@@ -11,15 +11,29 @@ const oneSize = (info) => info.project.name !== "desktop-chrome";
 const isPhone = (info) => ["phone", "small-phone"].includes(info.project.name);
 
 // Scroll through the page so every section reveals, then wait until no animation is running.
+// At each step, wait for the sections on screen to reveal instead of pausing a fixed time: right after
+// load, WebKit on Linux reports what's on screen late, and a fast scroll would skip sections.
 async function settle(page) {
   await page.evaluate(async () => {
-    // "instant" beats the page's smooth scrolling, which would otherwise stop each jump partway.
-    for (let y = 0; y < document.body.scrollHeight; y += innerHeight * 0.6) { scrollTo({ top: y, behavior: "instant" }); await new Promise((r) => setTimeout(r, 60)); }
+    const onScreen = (g) => { const r = g.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight * 0.9 && r.height > 0; };
+    for (let y = 0; ; y += innerHeight * 0.6) {
+      scrollTo({ top: y, behavior: "instant" }); // "instant" beats the page's smooth scrolling
+      const until = performance.now() + 3000;
+      while (performance.now() < until && [...document.querySelectorAll(".reveal")].some((g) => onScreen(g) && !g.classList.contains("in"))) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      if (y >= document.documentElement.scrollHeight - innerHeight) break;
+    }
   });
-  // Every section has been seen, so every reveal has started. Then wait for all of them to land.
   await page.waitForFunction(() => [...document.querySelectorAll(".reveal")].every((g) => g.classList.contains("in")));
   await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
   await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running" || a.effect?.getTiming().iterations === Infinity));
+}
+
+// Wait for the page and its version request, instead of "network idle", which can hang while the video streams.
+async function load(page, path = "/") {
+  const [res] = await Promise.all([page.goto(path), page.waitForResponse((r) => r.url().includes("/download?info=1")).catch(() => null)]);
+  return res;
 }
 
 // Collect console errors and failed requests on every page load.
@@ -37,11 +51,11 @@ test.beforeEach(async ({ page }, info) => {
 
 test.describe("Layout at every screen size", () => {
   test("the page loads without errors", async ({ page }, info) => {
-    const res = await page.goto("/");
+    const res = await load(page);
     expect(res.status()).toBe(200);
     await expect(page).toHaveTitle(/Umbra/);
     await expect(page.locator("h1")).toHaveCount(1);
-    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(500); // let late errors surface
     expect(info.errors).toEqual([]);
   });
 
@@ -122,8 +136,7 @@ test.describe("Layout at every screen size", () => {
   });
 
   test("full-page screenshot", async ({ page }, info) => {
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
+    await load(page);
     await settle(page);
     await info.attach(`${info.project.name}.png`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
   });
