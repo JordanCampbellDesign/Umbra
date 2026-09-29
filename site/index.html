@@ -48,15 +48,16 @@ a:hover { color: #FFD873; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 6px; }
 .skip { position: absolute; left: -999px; top: 8px; background: var(--gold); color: var(--night); padding: 8px 12px; border-radius: 8px; }
 .skip:focus { left: 8px; z-index: 10; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .wrap { width: min(1080px, 100% - 40px); margin-inline: auto; }
 .prose { max-width: 62ch; }
 
 /* Header */
 header { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
-.brand { display: flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font-weight: 650; font-size: 18px; }
+.brand { display: flex; align-items: center; gap: 10px; min-height: 44px; color: var(--text); text-decoration: none; font-weight: 650; font-size: 18px; }
 .brand img { width: 32px; height: 32px; border-radius: 8px; }
 .nav { display: flex; gap: 22px; align-items: center; font-size: 15px; }
-.nav a { color: var(--muted); text-decoration: none; }
+.nav a { color: var(--muted); text-decoration: none; display: inline-flex; align-items: center; min-height: 44px; }
 .nav a:hover { color: var(--text); }
 .nav a.btn, .nav a.btn:hover { color: #1A1400; }
 @media (max-width: 640px) { .nav a:not(.btn) { display: none; } }
@@ -186,6 +187,23 @@ footer .row { display: flex; justify-content: space-between; gap: 20px; flex-wra
 footer a { color: var(--muted); }
 footer a:hover { color: var(--text); }
 footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
+/* Open source */
+.oss { display: flex; gap: 32px 48px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  background: var(--night-2); border: 1px solid var(--line); border-radius: 22px; padding: clamp(24px, 4vw, 44px); }
+.oss p { color: var(--muted); margin: 0 0 12px; }
+.oss p:last-child { margin: 0; }
+.oss-links { display: flex; gap: 12px; flex-wrap: wrap; }
+.oss-links svg { width: 20px; height: 20px; }
+.gh { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: var(--muted); }
+.gh:hover { color: var(--text); background: var(--night-3); }
+.gh svg { width: 22px; height: 22px; }
+.nav a.gh { display: inline-grid; }
+.love { margin: 0; }
+.love a { color: var(--text); }
+.heart { color: var(--ember); display: inline-block; }
+@media (prefers-reduced-motion: no-preference) { .love:hover .heart { animation: beat .8s var(--ease); } }
+@keyframes beat { 30% { transform: scale(1.3); } 60% { transform: scale(.95); } }
+
 /* Help chat */
 .chat-fab { position: fixed; right: 20px; bottom: 20px; z-index: 50; display: inline-flex; align-items: center; gap: 8px;
   border: 0; cursor: pointer; border-radius: 999px; padding: 14px 18px; font: 600 15px var(--font); color: #1A1400; background: var(--gold);
@@ -197,6 +215,7 @@ footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
   display: flex; flex-direction: column; background: var(--night-2); border: 1px solid var(--line); border-radius: 20px; overflow: hidden;
   box-shadow: 0 30px 80px rgba(0,0,0,.6); transform-origin: bottom right; opacity: 0; transform: translateY(12px) scale(.96); pointer-events: none;
   transition: opacity .22s var(--ease), transform .28s var(--ease); }
+.chat[hidden] { display: none; }
 .chat-open .chat { opacity: 1; transform: none; pointer-events: auto; }
 @media (max-width: 520px) { .chat { right: 12px; bottom: 12px; } .chat-fab span { display: none; } .chat-fab { padding: 14px; } }
 .chat-head { display: flex; align-items: center; gap: 10px; padding: 14px 14px 12px 16px; border-bottom: 1px solid var(--line); }
@@ -237,6 +256,7 @@ footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
       <a href="#install">Install</a>
       <a href="#help">Help</a>
       <a href="#faq">Questions</a>
+      <a class="gh" href="https://github.com/JordanCampbellDesign/Umbra" aria-label="Umbra on GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .5z"/></svg></a>
       <a class="btn small" href="/download" data-download>Download</a>
     </nav>
   </header>
@@ -246,7 +266,7 @@ footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
   <div class="wrap hero">
     <img class="icon" src="/assets/icon.png" alt="The Umbra app icon: a gold crescent moon with sun rays on navy" width="128" height="128">
     <h1>Control your monitors from the menu bar</h1>
-    <p class="lede">Umbra changes the brightness, volume, and input of every screen plugged into your Mac. No more reaching around the back of your monitor for those tiny buttons. It's free, and it never asks you to sign up.</p>
+    <p class="lede">Umbra changes the brightness, volume, and input of every screen plugged into your Mac. No more reaching around the back of your monitor for those tiny buttons. It's free, <a href="https://github.com/JordanCampbellDesign/Umbra">open source</a>, and it never asks you to sign up.</p>
     <a class="btn" href="/download" data-download>
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.37 12.6c-.02-2.2 1.8-3.26 1.88-3.31-1.03-1.5-2.62-1.7-3.18-1.73-1.35-.14-2.64.8-3.33.8-.69 0-1.74-.78-2.87-.76-1.47.02-2.83.86-3.59 2.18-1.53 2.66-.39 6.6 1.1 8.76.73 1.05 1.6 2.24 2.73 2.2 1.1-.05 1.51-.71 2.84-.71 1.32 0 1.7.71 2.86.69 1.18-.02 1.93-1.07 2.65-2.13.84-1.22 1.18-2.4 1.2-2.46-.03-.01-2.3-.88-2.32-3.5zM14.2 6.15c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.54 1.3-.56.64-1.05 1.67-.92 2.66.97.07 1.96-.49 2.56-1.2z"/></svg>
       Download for Mac
@@ -260,7 +280,7 @@ footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
     <div>
       <div class="brew">
         <span>Use Homebrew?</span>
-        <code id="brew">brew install --cask jordancampbelldesign/tap/umbra</code>
+        <code id="brew" tabindex="0" aria-label="Homebrew install command">brew install --cask jordancampbelldesign/tap/umbra</code>
         <button class="copy" type="button" data-copy="brew">Copy</button>
       </div>
     </div>
@@ -397,7 +417,7 @@ footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
         <summary>macOS says Umbra "is damaged and can't be opened"</summary>
         <p>This usually means the download didn't finish. Move Umbra to the Trash, <a href="/download" data-download>download it again</a>, and drag the new copy to Applications.</p>
         <p>If you still see it, open the Terminal app, paste this line, and press Return. It tells macOS you downloaded Umbra on purpose.</p>
-        <div class="brew" style="margin:0 0 20px"><code id="xattr">xattr -dr com.apple.quarantine /Applications/Umbra.app</code><button class="copy" type="button" data-copy="xattr">Copy</button></div>
+        <div class="brew" style="margin:0 0 20px"><code id="xattr" tabindex="0" aria-label="Terminal command">xattr -dr com.apple.quarantine /Applications/Umbra.app</code><button class="copy" type="button" data-copy="xattr">Copy</button></div>
       </details>
       <details>
         <summary>I can't find Umbra in the menu bar</summary>
@@ -465,6 +485,20 @@ footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
     </div>
   </section>
 
+  <section id="open-source" aria-labelledby="oss">
+    <div class="wrap oss">
+      <div class="prose">
+        <h2 id="oss">Free and open source</h2>
+        <p>All of Umbra's code is public on GitHub. Anyone can read it to see exactly what the app does, report a bug, or suggest a fix. It uses the MIT license, so you can even build your own version.</p>
+        <p>If Umbra helps you, a star on GitHub helps other people find it.</p>
+      </div>
+      <div class="oss-links">
+        <a class="btn ghost" href="https://github.com/JordanCampbellDesign/Umbra"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .5z"/></svg>View on GitHub</a>
+        <a class="btn ghost" href="https://github.com/JordanCampbellDesign/Umbra/issues">Report a bug</a>
+      </div>
+    </div>
+  </section>
+
   <section class="cta" aria-labelledby="go">
     <div class="wrap">
       <img src="/assets/icon.png" alt="" width="88" height="88">
@@ -477,16 +511,16 @@ footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
 
 <footer>
   <div class="wrap row">
-    <p style="margin:0">Umbra is made by Jordan Campbell. The name means the darkest part of a shadow.</p>
+    <p class="love">Made with <span class="heart" aria-label="love">♥</span> by <a href="https://www.jordancampbell.design">Jordan Campbell</a>. The name Umbra means the darkest part of a shadow.</p>
     <nav aria-label="Footer">
-      <a href="https://github.com/JordanCampbellDesign/Umbra">Source code</a>
+      <a href="https://github.com/JordanCampbellDesign/Umbra">GitHub</a>
       <a href="https://github.com/JordanCampbellDesign/Umbra/blob/main/CHANGELOG.md">What's new</a>
       <a href="https://github.com/JordanCampbellDesign/Umbra/blob/main/LICENSE">MIT license</a>
     </nav>
   </div>
 </footer>
 
-<button class="chat-fab" type="button" id="chat-fab" aria-controls="chat" aria-expanded="false">
+<button class="chat-fab" type="button" id="chat-fab" aria-controls="chat" aria-expanded="false" aria-label="Ask a question">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"/></svg>
   <span>Ask a question</span>
 </button>
@@ -498,7 +532,7 @@ footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
   </div>
   <div class="chat-log" id="chat-log" aria-live="polite"></div>
   <form class="chat-form" id="chat-form">
-    <label for="chat-input" class="skip">Your question</label>
+    <label for="chat-input" class="sr-only">Your question</label>
     <input id="chat-input" type="text" maxlength="500" autocomplete="off" placeholder="Ask about installing or using Umbra">
     <button type="submit" aria-label="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
   </form>

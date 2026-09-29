@@ -41,6 +41,8 @@ The MP4 is not kept in git (each render would add about 6 MB to the history). Up
 
 ## End-to-end tests
 
+The website in `site/` has its own browser tests at every screen size. See [site/TESTING.md](site/TESTING.md).
+
 Two suites run against the real app. Both change your displays for a moment and put them back.
 
 - **CLI suite:** `scripts/e2e/cli_e2e.py`. It restarts the installed app (`~/Applications/Umbra.app`, or pass `--app`) and checks each change through `umbra state`: brightness and contrast round trips, below 0%, mode switch, Night Mode, Away mode and its keep-awake assertion, link safety, and that commands without the app's token are rejected. It ends by checking every display is back where it started. Add `--disruptive` to also turn an external monitor off and on with BlackOut. Results go to `test-results/e2e-cli.json`.

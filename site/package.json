@@ -4,5 +4,16 @@
   "type": "module",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:local": "BASE_URL=http://localhost:4321 playwright test",
+    "test:phone": "playwright test --project=phone --project=small-phone",
+    "test:report": "playwright show-report test-results/report",
+    "serve": "node tests/serve.mjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0"
   }
 }
