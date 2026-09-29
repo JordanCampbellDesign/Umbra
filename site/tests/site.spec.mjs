@@ -58,6 +58,23 @@ test.describe("Layout at every screen size", () => {
     }
   });
 
+  test("the app screenshots sit side by side on wide screens and stack on narrow ones", async ({ page }) => {
+    await page.goto("/");
+    const figs = page.locator(".shots figure");
+    await figs.first().scrollIntoViewIfNeeded();
+    const [a, b] = [await figs.nth(0).boundingBox(), await figs.nth(1).boundingBox()];
+    // Neither image may show at its full pixel size (760 and 1040 px wide).
+    expect(a.width).toBeLessThanOrEqual(400);
+    expect(b.width).toBeLessThanOrEqual(400);
+    expect(Math.abs(a.width - b.width)).toBeLessThan(2);
+    if (page.viewportSize().width > 760) {
+      expect(Math.abs(a.y + a.height - (b.y + b.height)), "captions line up").toBeLessThan(2);
+      expect(b.x).toBeGreaterThan(a.x + a.width);
+    } else {
+      expect(b.y).toBeGreaterThan(a.y + a.height);
+    }
+  });
+
   test("text stays readable", async ({ page }) => {
     await page.goto("/");
     const tiny = await page.evaluate(() =>

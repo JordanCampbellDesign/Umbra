@@ -152,9 +152,12 @@ input[type=range]::-moz-range-thumb { width: 26px; height: 26px; border: 0; bord
 .feature h3 { font-size: 19px; margin: 0 0 6px; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
 .feature h3 svg { width: 22px; height: 22px; color: var(--gold); flex: none; }
 .feature p { margin: 0; color: var(--muted); }
-.shots { display: flex; gap: 28px; justify-content: center; align-items: flex-start; margin-top: 64px; flex-wrap: wrap; }
-.shots img { width: min(380px, 100%); height: auto; border-radius: 16px; box-shadow: 0 30px 70px rgba(0,0,0,.45); }
-.shots figure { margin: 0; }
+/* Two equal columns, bottoms lined up so the captions sit on one line. Each column has a real width,
+   so the images never fall back to their full pixel size (Safari did). */
+.shots { display: grid; grid-template-columns: repeat(2, minmax(0, 400px)); gap: 40px; justify-content: center; align-items: end; margin-top: 64px; }
+.shots figure { margin: 0; min-width: 0; }
+.shots img { display: block; width: 100%; height: auto; border-radius: 16px; box-shadow: 0 30px 70px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.06); }
+@media (max-width: 760px) { .shots { grid-template-columns: minmax(0, 400px); gap: 48px; } }
 .shots figcaption { text-align: center; color: var(--muted); font-size: 14px; margin-top: 14px; }
 
 /* Install */
