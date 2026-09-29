@@ -7,7 +7,17 @@ const REPO = "https://github.com/JordanCampbellDesign/Umbra";
 // and only against a real deploy (npm run test:local serves plain files).
 const local = (info) => /localhost|127\.0\.0\.1/.test(info.project.use.baseURL);
 const once = (info) => info.project.name !== "desktop-chrome" || local(info);
+const oneSize = (info) => info.project.name !== "desktop-chrome";
 const isPhone = (info) => ["phone", "small-phone"].includes(info.project.name);
+
+// Scroll through the page so every section reveals, then wait until no animation is running.
+async function settle(page) {
+  await page.evaluate(async () => {
+    for (let y = 0; y < document.body.scrollHeight; y += innerHeight * 0.6) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 60)); }
+    scrollTo(0, 0);
+  });
+  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running" || a.effect?.getTiming().iterations === Infinity));
+}
 
 // Collect console errors and failed requests on every page load.
 test.beforeEach(async ({ page }, info) => {
@@ -110,6 +120,7 @@ test.describe("Layout at every screen size", () => {
   test("full-page screenshot", async ({ page }, info) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
+    await settle(page);
     await info.attach(`${info.project.name}.png`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
   });
 });
@@ -286,9 +297,63 @@ test.describe("Help, questions, and credits", () => {
 });
 
 test.describe("Motion and accessibility", () => {
+  test("the hero comes in one piece at a time", async ({ page }) => {
+    await page.goto("/");
+    const delays = await page.locator(".hero .enter").evaluateAll((els) => els.map((e) => parseFloat(getComputedStyle(e).animationDelay) * 1000));
+    expect(delays.length).toBe(6);
+    // 60 ms apart, in reading order: icon, headline, text, button, version, Homebrew.
+    delays.forEach((d, i) => expect(Math.round(d)).toBe(i * 60));
+  });
+
+  test("sections fade up once when they scroll into view, items staggered", async ({ page }) => {
+    await page.goto("/");
+    const features = page.locator(".features");
+    const firstCard = features.locator(".feature").first();
+    expect(await firstCard.evaluate((e) => +getComputedStyle(e).opacity)).toBe(0);
+    await features.scrollIntoViewIfNeeded();
+    await expect(features).toHaveClass(/\bin\b/);
+    await expect.poll(() => firstCard.evaluate((e) => +getComputedStyle(e).opacity)).toBe(1);
+    const delays = await features.locator(".feature").evaluateAll((els) => els.slice(0, 4).map((e) => parseFloat(getComputedStyle(e).animationDelay)));
+    expect(delays).toEqual([0, 0.06, 0.12, 0.18]);
+    // It doesn't replay when you scroll away and back.
+    await page.evaluate(() => scrollTo(0, 0));
+    await expect(features).toHaveClass(/\bin\b/);
+  });
+
+  test("with reduce motion on, things fade but don't move", async ({ browser }, info) => {
+    test.skip(oneSize(info));
+    const context = await browser.newContext({ reducedMotion: "reduce" });
+    const page = await context.newPage();
+    await page.goto(info.project.use.baseURL + "/");
+    expect(await page.locator("h1").evaluate((e) => getComputedStyle(e).animationName)).toBe("fade-only");
+    await context.close();
+  });
+
+  test("everything is readable with JavaScript off", async ({ browser }, info) => {
+    test.skip(oneSize(info));
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto(info.project.use.baseURL + "/");
+    const hidden = await page.evaluate(() => [...document.querySelectorAll("main h1, main h2, main p, .feature")]
+      .filter((e) => +getComputedStyle(e).opacity < 1).map((e) => e.textContent.trim().slice(0, 30)));
+    expect(hidden).toEqual([]);
+    await context.close();
+  });
+
+  test("the motion follows Emil Kowalski's never-ship list", async ({ request }, info) => {
+    test.skip(oneSize(info));
+    const css = (await (await request.get("/")).text()).match(/<style>([\s\S]*?)<\/style>/)[1];
+    expect(css, "transition: all").not.toMatch(/transition:\s*all/);
+    expect(css, "scale(0) entrance").not.toMatch(/scale\(0\)/);
+    expect(css, "ease-in on UI").not.toMatch(/ease-in(?!-out)/);
+    // Hover movement only with a real mouse, so taps on touch screens don't trigger it.
+    expect(css).toMatch(/@media \(hover: hover\) and \(pointer: fine\)/);
+  });
+
   test("no serious accessibility problems", async ({ page }, info) => {
     test.skip(!["desktop-chrome", "phone"].includes(info.project.name));
     await page.goto("/");
+    await settle(page);
     const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
     const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact))
       .map((v) => `${v.id}: ${v.nodes.slice(0, 3).map((n) => n.target.join(" ")).join(", ")}`);
