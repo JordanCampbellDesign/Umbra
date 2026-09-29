@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page not found · Umbra</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/assets/icon.png">
+<style>
+:root { color-scheme: dark; }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; text-align: center; padding: 24px;
+  background: #0B0C1F radial-gradient(60% 50% at 50% 0%, rgba(255,181,74,.14), transparent 70%) no-repeat;
+  color: #EEEFFA; font: 17px/1.55 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
+img { width: 88px; height: 88px; border-radius: 20px; opacity: .55; }
+h1 { font-size: clamp(30px, 5vw, 42px); letter-spacing: -.03em; margin: 22px 0 10px; }
+p { color: #A6A9CF; margin: 0 auto 28px; max-width: 30em; }
+.row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+a { display: inline-flex; align-items: center; min-height: 48px; padding: 0 22px; border-radius: 999px; font-weight: 600; text-decoration: none; }
+.primary { background: #FFC740; color: #1A1400; }
+.primary:hover { background: #FFD25E; }
+.ghost { color: #EEEFFA; box-shadow: inset 0 0 0 1px #2A2D55; }
+.ghost:hover { background: #1F2142; }
+a:focus-visible { outline: 2px solid #FFC740; outline-offset: 3px; }
+</style>
+</head>
+<body>
+<main>
+  <img src="/assets/icon.png" alt="">
+  <h1>This page is in the dark</h1>
+  <p>We couldn't find that page. It may have moved, or the link may have a typo.</p>
+  <div class="row">
+    <a class="primary" href="/download">Download Umbra</a>
+    <a class="ghost" href="/">Go to the home page</a>
+  </div>
+</main>
+</body>
+</html>

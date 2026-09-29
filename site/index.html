@@ -11,6 +11,7 @@
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#0B0C1F">
+<link rel="canonical" href="https://umbra-mac.vercel.app/">
 <link rel="icon" href="/assets/icon.png">
 <link rel="apple-touch-icon" href="/assets/icon.png">
 <style>
@@ -89,6 +90,7 @@ h1 { font-size: clamp(38px, 6.4vw, 66px); line-height: 1.04; letter-spacing: -.0
 .copy { font: 600 13px var(--font); color: var(--text); background: var(--night-3); border: 0; border-radius: 7px; padding: 7px 10px; cursor: pointer; min-width: 64px; }
 .copy:hover { background: var(--line); }
 .not-mac { display: none; margin: 16px auto 0; max-width: 30em; color: var(--gold-2); font-size: 15px; }
+.not-mac p { margin: 0 0 12px; }
 .is-mobile .not-mac { display: block; }
 .toast { display: none; margin: 18px auto 0; max-width: 32em; background: var(--night-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; font-size: 15px; }
 .toast.show { display: block; animation: rise .35s var(--ease); }
@@ -169,7 +171,7 @@ kbd, .ui { font: 600 .92em var(--font); background: var(--night-3); border: 1px 
 
 /* FAQ */
 details { border-bottom: 1px solid var(--line); }
-details:first-of-type { border-top: 1px solid var(--line); }
+.sub + details, h2 + details { border-top: 1px solid var(--line); }
 summary { cursor: pointer; list-style: none; padding: 20px 36px 20px 0; font-weight: 620; font-size: 18px; position: relative; }
 summary::-webkit-details-marker { display: none; }
 summary::after { content: "+"; position: absolute; right: 4px; top: 16px; font-size: 26px; font-weight: 300; color: var(--muted); transition: transform .25s var(--ease); }
@@ -195,6 +197,7 @@ footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
     <nav class="nav" aria-label="Main">
       <a href="#features">Features</a>
       <a href="#install">Install</a>
+      <a href="#help">Help</a>
       <a href="#faq">Questions</a>
       <a class="btn small" href="/download" data-download>Download</a>
     </nav>
@@ -211,7 +214,10 @@ footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
       Download for Mac
     </a>
     <p class="meta" id="meta">Version <span data-version>1.0.3</span> · <span data-size>1 MB</span> · macOS 14 or later · Apple Silicon (M1 or newer)</p>
-    <p class="not-mac">Umbra is a Mac app. Open this page on your Mac to download it.</p>
+    <div class="not-mac">
+      <p>Umbra is a Mac app. Open this page on your Mac to download it.</p>
+      <button class="btn ghost small" type="button" id="share">Send this link to my Mac</button>
+    </div>
     <p class="toast" id="toast" role="status">Your download has started. <a href="#install">Here's what to do next.</a></p>
     <div>
       <div class="brew">
@@ -341,6 +347,52 @@ footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
     </div>
   </section>
 
+  <section id="help" aria-labelledby="fix">
+    <div class="wrap prose">
+      <h2 id="fix">If something goes wrong</h2>
+      <p class="sub">Fixes for the problems people run into most.</p>
+      <details>
+        <summary>There's no Open Anyway button</summary>
+        <p>The button only shows for about an hour after macOS blocks Umbra. Open Umbra from your Applications folder again, click <span class="ui">Done</span>, then go back to <span class="ui">Privacy &amp; Security</span> and scroll down.</p>
+      </details>
+      <details>
+        <summary>macOS says Umbra "is damaged and can't be opened"</summary>
+        <p>This usually means the download didn't finish. Move Umbra to the Trash, <a href="/download" data-download>download it again</a>, and drag the new copy to Applications.</p>
+        <p>If you still see it, open the Terminal app, paste this line, and press Return. It tells macOS you downloaded Umbra on purpose.</p>
+        <div class="brew" style="margin:0 0 20px"><code id="xattr">xattr -dr com.apple.quarantine /Applications/Umbra.app</code><button class="copy" type="button" data-copy="xattr">Copy</button></div>
+      </details>
+      <details>
+        <summary>I can't find Umbra in the menu bar</summary>
+        <p>On MacBooks with a notch, the menu bar can run out of room and hide icons behind it. Open Umbra from your Applications folder again, and its main window opens instead. You can also quit a few other menu bar apps to make room.</p>
+      </details>
+      <details>
+        <summary>My monitor's brightness doesn't change</summary>
+        <p>Some monitors, docks, and adapters don't pass brightness commands through the cable. Umbra usually notices and offers to dim the picture itself. To switch by hand, open Umbra's <span class="ui">Settings</span>, click <span class="ui">Displays</span>, choose the monitor, and set <span class="ui">Method</span> to <span class="ui">Gamma (software)</span>.</p>
+        <p>If the monitor is on a dock or adapter, try plugging it straight into your Mac.</p>
+      </details>
+      <details>
+        <summary>The brightness keys don't change my monitor</summary>
+        <p>The keys need Accessibility permission. Open <span class="ui">System Settings</span>, click <span class="ui">Privacy &amp; Security</span>, then <span class="ui">Accessibility</span>, and turn on Umbra. If it's already on but the keys still don't work, turn it off and on again.</p>
+      </details>
+      <details>
+        <summary>A screen went black and won't come back</summary>
+        <p>Press <kbd>Control</kbd> <kbd>Command</kbd> <kbd>7</kbd> to turn every screen back on. If Away mode turned them off, move the mouse or press any key.</p>
+      </details>
+      <details>
+        <summary>I can't replace Umbra with a new version</summary>
+        <p>Quit Umbra first: open its menu and click the power button at the bottom. Then drag the new copy to Applications and click <span class="ui">Replace</span>. Umbra normally updates itself, so you only need this if you download it again by hand.</p>
+      </details>
+      <details>
+        <summary>Does it work on an Intel Mac or an older macOS?</summary>
+        <p>No. Umbra needs a Mac with Apple Silicon (M1 or newer) and macOS 14 Sonoma or later. To check yours, open the Apple menu and choose <span class="ui">About This Mac</span>. Look for "Chip: Apple M" and a macOS version of 14 or higher.</p>
+      </details>
+      <details>
+        <summary>None of these fixed it</summary>
+        <p>In Umbra, open the menu, click <span class="ui">More</span>, then <span class="ui">Report a problem with a monitor</span>. It fills in your Mac and monitor details for you. Sending it needs a free GitHub account.</p>
+      </details>
+    </div>
+  </section>
+
   <section id="faq" aria-labelledby="q">
     <div class="wrap prose">
       <h2 id="q">Questions</h2>
@@ -370,7 +422,7 @@ footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
       </details>
       <details>
         <summary>Something isn't working. What do I do?</summary>
-        <p>In Umbra, open the menu, click <span class="ui">More</span>, then <span class="ui">Report a problem with a monitor</span>. It fills in your Mac and monitor details for you. Sending the report needs a free GitHub account.</p>
+        <p>Check <a href="#help">If something goes wrong</a> above. It covers the most common problems.</p>
       </details>
     </div>
   </section>
@@ -421,9 +473,22 @@ footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
   // Copy the Homebrew command.
   $$("[data-copy]").forEach(b => b.addEventListener("click", async () => {
     try { await navigator.clipboard.writeText($("#" + b.dataset.copy).textContent); b.textContent = "Copied"; }
-    catch { b.textContent = "Select it"; }
+    catch {
+      const range = document.createRange(); range.selectNodeContents($("#" + b.dataset.copy));
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range); b.textContent = "Press ⌘C";
+    }
     setTimeout(() => b.textContent = "Copy", 1600);
   }));
+
+  // On a phone, send the link to your Mac (AirDrop, Messages, email) or copy it.
+  const share = $("#share");
+  if (share) share.addEventListener("click", async () => {
+    const url = "https://umbra-mac.vercel.app";
+    try {
+      if (navigator.share) await navigator.share({ title: "Umbra for Mac", url });
+      else { await navigator.clipboard.writeText(url); share.textContent = "Link copied"; }
+    } catch {}
+  });
 
   // The demo desk.
   const slider = $("#bright"), val = $("#val"), night = $("#night"), hint = $("#hint");
@@ -468,7 +533,7 @@ footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
   const v = $("video");
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) { v.removeAttribute("autoplay"); v.pause(); v.controls = true; }
   else if ("IntersectionObserver" in window) {
-    new IntersectionObserver(([e]) => e.isIntersecting ? v.play().catch(() => {}) : v.pause(), { threshold: .2 }).observe(v);
+    new IntersectionObserver(([e]) => e.isIntersecting ? v.play().catch(() => { v.controls = true; }) : v.pause(), { threshold: .2 }).observe(v);
   }
 })();
 </script>
