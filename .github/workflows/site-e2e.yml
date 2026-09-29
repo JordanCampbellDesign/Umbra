@@ -20,10 +20,10 @@ jobs:
       run:
         working-directory: site
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: site/package-lock.json
       - run: npm ci
@@ -32,7 +32,7 @@ jobs:
         env:
           BASE_URL: https://umbra-mac.vercel.app
           CI: "true"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report

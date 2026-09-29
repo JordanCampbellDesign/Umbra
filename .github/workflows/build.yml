@@ -9,14 +9,14 @@ jobs:
   test:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Run tests
         run: swift test
 
   app:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Build Umbra.app (unsigned)
@@ -25,7 +25,7 @@ jobs:
           xcodebuild -project Umbra.xcodeproj -scheme Umbra -configuration Release \
             -derivedDataPath .xcbuild CODE_SIGNING_ALLOWED=NO build
       - name: Upload app
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Umbra.app
           path: .xcbuild/Build/Products/Release/Umbra.app
@@ -35,6 +35,6 @@ jobs:
     runs-on: macos-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Virtual screen tests
         run: scripts/e2e/virtual_displays.sh

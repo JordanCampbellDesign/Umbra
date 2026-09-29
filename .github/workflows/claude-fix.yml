@@ -22,7 +22,7 @@ jobs:
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
