@@ -13,9 +13,12 @@ const isPhone = (info) => ["phone", "small-phone"].includes(info.project.name);
 // Scroll through the page so every section reveals, then wait until no animation is running.
 async function settle(page) {
   await page.evaluate(async () => {
-    for (let y = 0; y < document.body.scrollHeight; y += innerHeight * 0.6) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 60)); }
-    scrollTo(0, 0);
+    // "instant" beats the page's smooth scrolling, which would otherwise stop each jump partway.
+    for (let y = 0; y < document.body.scrollHeight; y += innerHeight * 0.6) { scrollTo({ top: y, behavior: "instant" }); await new Promise((r) => setTimeout(r, 60)); }
   });
+  // Every section has been seen, so every reveal has started. Then wait for all of them to land.
+  await page.waitForFunction(() => [...document.querySelectorAll(".reveal")].every((g) => g.classList.contains("in")));
+  await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
   await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running" || a.effect?.getTiming().iterations === Infinity));
 }
 
@@ -72,6 +75,7 @@ test.describe("Layout at every screen size", () => {
     await page.goto("/");
     const figs = page.locator(".shots figure");
     await figs.first().scrollIntoViewIfNeeded();
+    await settle(page); // they fade up 60 ms apart, so measure once they've landed
     const [a, b] = [await figs.nth(0).boundingBox(), await figs.nth(1).boundingBox()];
     // Neither image may show at its full pixel size (760 and 1040 px wide).
     expect(a.width).toBeLessThanOrEqual(400);
@@ -316,7 +320,7 @@ test.describe("Motion and accessibility", () => {
     const delays = await features.locator(".feature").evaluateAll((els) => els.slice(0, 4).map((e) => parseFloat(getComputedStyle(e).animationDelay)));
     expect(delays).toEqual([0, 0.06, 0.12, 0.18]);
     // It doesn't replay when you scroll away and back.
-    await page.evaluate(() => scrollTo(0, 0));
+    await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
     await expect(features).toHaveClass(/\bin\b/);
   });
 
