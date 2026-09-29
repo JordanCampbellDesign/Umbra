@@ -16,6 +16,8 @@ Umbra covers the features of Lunar.app with no paid tier. It is written from scr
 
 Umbra needs macOS 14 or later on an Apple Silicon Mac. Control Center controls need macOS 26.
 
+The easiest way: download it from **[umbra-mac.vercel.app](https://umbra-mac.vercel.app)**. The page walks you through installing.
+
 With [Homebrew](https://brew.sh):
 
 ```bash
