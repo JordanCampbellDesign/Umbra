@@ -5,7 +5,8 @@
 // Without a key, the page answers from the same text in the browser.
 import Anthropic from "@anthropic-ai/sdk";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const MAX_QUESTION = 500;   // characters per message
 const MAX_TURNS = 8;        // messages of history sent to Claude
@@ -13,7 +14,9 @@ const PER_MINUTE = 8;       // requests per visitor per minute (best effort, per
 
 // Turn the page's Help, Questions, and feature text into plain notes for the system prompt.
 function loadKnowledge() {
-  const html = readFileSync(join(process.cwd(), "index.html"), "utf8");
+  // index.html sits one folder up from this file, both locally and on Vercel.
+  const here = dirname(fileURLToPath(import.meta.url));
+  const html = readFileSync(join(here, "..", "index.html"), "utf8");
   const text = (s) => s.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
   const notes = [];
   for (const m of html.matchAll(/<details>\s*<summary>([\s\S]*?)<\/summary>([\s\S]*?)<\/details>/g)) {
@@ -27,7 +30,8 @@ function loadKnowledge() {
   return notes.join("\n\n");
 }
 
-const SYSTEM = `You answer questions on the website for Umbra, a free, open source Mac menu bar app that controls the brightness, contrast, volume, input, and power of monitors.
+function buildSystem() {
+  return `You answer questions on the website for Umbra, a free, open source Mac menu bar app that controls the brightness, contrast, volume, input, and power of monitors.
 
 Answer only from the notes below. If the notes don't cover the question, say you don't know, and suggest the "Report a problem with a monitor" item in Umbra's More menu, or the GitHub page: https://github.com/JordanCampbellDesign/Umbra/issues
 
@@ -42,6 +46,10 @@ How to write:
 
 Notes:
 ${loadKnowledge()}`;
+}
+
+// Built on the first question, so a problem reading the page can never take down the status check.
+let SYSTEM = null;
 
 const client = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null;
 const hits = new Map();
@@ -73,6 +81,7 @@ export default async function handler(req, res) {
   if (!messages.length || messages.at(-1).role !== "user") return res.status(400).json({ error: "Send a question." });
 
   try {
+    SYSTEM ??= buildSystem();
     const response = await client.beta.messages.create({
       model: "claude-opus-5",
       max_tokens: 4000,
