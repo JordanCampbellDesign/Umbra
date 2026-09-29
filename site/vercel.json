@@ -2,15 +2,41 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- .",
-  "rewrites": [{ "source": "/download", "destination": "/api/download" }],
+  "rewrites": [
+    {
+      "source": "/download",
+      "destination": "/api/download"
+    }
+  ],
   "redirects": [
-    { "source": "/dmg", "destination": "/download", "permanent": false },
-    { "source": "/install", "destination": "/#install", "permanent": false },
-    { "source": "/help", "destination": "/#help", "permanent": false },
-    { "source": "/github", "destination": "https://github.com/JordanCampbellDesign/Umbra", "permanent": false },
+    {
+      "source": "/dmg",
+      "destination": "/download",
+      "permanent": false
+    },
+    {
+      "source": "/install",
+      "destination": "/#install",
+      "permanent": false
+    },
+    {
+      "source": "/help",
+      "destination": "/#help",
+      "permanent": false
+    },
+    {
+      "source": "/github",
+      "destination": "https://github.com/JordanCampbellDesign/Umbra",
+      "permanent": false
+    },
     {
       "source": "/:path*",
-      "has": [{ "type": "host", "value": "umbra-chi-six.vercel.app" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "umbra-chi-six.vercel.app"
+        }
+      ],
       "destination": "https://umbra-mac.vercel.app/:path*",
       "permanent": true
     }
@@ -19,15 +45,38 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
       ]
     },
     {
       "source": "/assets/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=604800" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=604800"
+        }
+      ]
     }
-  ]
+  ],
+  "functions": {
+    "api/chat.js": {
+      "includeFiles": "index.html",
+      "maxDuration": 30
+    }
+  }
 }
