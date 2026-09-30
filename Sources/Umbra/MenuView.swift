@@ -157,13 +157,17 @@ struct AutoBrightnessNotice: View {
 
     var body: some View {
         Group {
-            if state.settings.mode == .sync, Engine.shared.syncSource?.isBuiltin == true, autoOn {
+            if state.settings.mode == .sync, Engine.shared.syncSource?.isBuiltin == true, autoOn, !state.settings.syncIgnoresAutoBrightness {
                 HStack(alignment: .top, spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("macOS changes the built-in display's brightness with the light sensor, and Sync copies it to your monitors. To stop this, turn off \"Automatically adjust brightness\" in Displays settings.")
+                        Text("macOS changes the built-in display's brightness with the light sensor, and Sync copies it to your monitors. Make the monitors ignore it, or turn off \"Automatically adjust brightness\" in Displays settings.")
                             .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                        Button("Open Displays Settings") { Private.openDisplaySettings() }.controlSize(.small)
+                        HStack(spacing: 6) {
+                            Button("Ignore Auto-Brightness") { state.settings.syncIgnoresAutoBrightness = true }
+                                .accessibilityIdentifier("mode.ignoreAutoBrightness")
+                            Button("Open Displays Settings") { Private.openDisplaySettings() }
+                        }.controlSize(.small)
                     }
                 }
                 .accessibilityIdentifier("mode.autoBrightnessNotice")

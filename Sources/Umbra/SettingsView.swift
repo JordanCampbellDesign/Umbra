@@ -138,6 +138,9 @@ struct ModesTab: View {
                 Stepper(value: $state.settings.syncPollSeconds, in: 0.2 ... 5, step: 0.1) {
                     Text("Check every \(state.settings.syncPollSeconds, specifier: "%.1f") s")
                 }
+                Toggle("Monitors ignore auto-brightness", isOn: $state.settings.syncIgnoresAutoBrightness)
+                Text("When macOS \"Automatically adjust brightness\" is on, the light sensor changes the built-in display. With this on, monitors only follow the changes you make with Umbra's sliders or the brightness keys.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Location") {
                 HStack {

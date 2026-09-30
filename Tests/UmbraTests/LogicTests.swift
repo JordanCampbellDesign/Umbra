@@ -57,6 +57,7 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(s.brightnessStep, 5)
         XCTAssertFalse(s.awayEnabled)
         XCTAssertEqual(s.awayMinutes, 5)
+        XCTAssertFalse(s.syncIgnoresAutoBrightness)
     }
 }
 

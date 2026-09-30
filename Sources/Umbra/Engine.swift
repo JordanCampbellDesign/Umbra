@@ -77,7 +77,14 @@ final class Engine: NSObject, CLLocationManagerDelegate {
         if !force, let last = lastSource, abs(last - b) < 0.4 { return }
         lastSource = b
         src.config.brightness = b
+        // The change may come from the light sensor, so leave the monitors alone. `userAdjusted` copies the user's own changes.
+        if ignoresAutoBrightness(src) { return }
         for d in targetDisplays(excluding: src) { push(d, brightness: b, contrast: nil, animated: false) }
+    }
+
+    /// True when Sync should copy only the user's changes to the source, because macOS auto-brightness also moves it.
+    func ignoresAutoBrightness(_ src: Display) -> Bool {
+        settings.syncIgnoresAutoBrightness && src.isBuiltin && Private.autoBrightnessEnabled() == true
     }
 
     // MARK: Location
@@ -205,9 +212,15 @@ final class Engine: NSObject, CLLocationManagerDelegate {
 
     /// Called when the user moves a slider while an adaptive mode runs: learn the offset for next time.
     func userAdjusted(_ d: Display, brightness: Double) {
-        guard settings.mode != .manual, d.config.adaptive else { return }
-        if settings.mode == .sync, d.id == syncSource?.id { return }
-        guard let t = targets[d.uuid] else { return }
+        guard settings.mode != .manual else { return }
+        if settings.mode == .sync, d.id == syncSource?.id {
+            if ignoresAutoBrightness(d) {
+                lastSource = brightness
+                for t in targetDisplays(excluding: d) { push(t, brightness: brightness, contrast: nil, animated: false) }
+            }
+            return
+        }
+        guard d.config.adaptive, let t = targets[d.uuid] else { return }
         d.config.syncOffset = max(-100, min(100, brightness - t))
     }
 }
