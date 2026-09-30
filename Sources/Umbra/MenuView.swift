@@ -37,6 +37,7 @@ struct MenuView: View {
             }
             ModePicker(selection: state.settings.mode) { state.requestMode($0) }
             ModeStatus()
+            AutoBrightnessNotice()
         }
         .padding(12)
     }
@@ -146,6 +147,33 @@ struct ModeStatus: View {
             return lux < 0 ? "Waiting for the sensor at \(s.sensorURL)" : String(format: "Sensor reads %.0f lux", lux)
         }
     }
+}
+
+/// Sync copies the built-in display's brightness, so macOS auto-brightness on that display moves every monitor.
+struct AutoBrightnessNotice: View {
+    @ObservedObject var state = AppState.shared
+    @State private var autoOn = Private.autoBrightnessEnabled() ?? false
+    let timer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        Group {
+            if state.settings.mode == .sync, Engine.shared.syncSource?.isBuiltin == true, autoOn {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("macOS changes the built-in display's brightness with the light sensor, and Sync copies it to your monitors. To stop this, turn off \"Automatically adjust brightness\" in Displays settings.")
+                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        Button("Open Displays Settings") { Private.openDisplaySettings() }.controlSize(.small)
+                    }
+                }
+                .accessibilityIdentifier("mode.autoBrightnessNotice")
+            }
+        }
+        .onAppear(perform: refresh)
+        .onReceive(timer) { _ in refresh() }
+    }
+
+    private func refresh() { autoOn = Private.autoBrightnessEnabled() ?? false }
 }
 
 struct DisplayCard: View {

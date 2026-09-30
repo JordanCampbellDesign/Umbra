@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Sync mode: if macOS "Automatically adjust brightness" is on, the menu and Settings > Modes now say so. That setting lets the light sensor change the built-in display, and Sync copies the change to every monitor. The notice has a button that opens Displays settings.
+
 ## 1.0.4
 
 - Settings > General > Appearance: keep Umbra's windows light or dark, or match macOS (the default).
