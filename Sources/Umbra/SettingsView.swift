@@ -118,6 +118,7 @@ struct ModesTab: View {
                     ForEach(AdaptiveMode.allCases) { Label($0.label, systemImage: $0.symbol).tag($0) }
                 }
                 Text(help).font(.caption).foregroundStyle(.secondary)
+                AutoBrightnessNotice()
                 Toggle("Remember the mode for each desk setup", isOn: $state.settings.rememberDeskModes)
                 Toggle("Contrast follows brightness", isOn: $state.settings.contrastFollowsBrightness)
                 if state.settings.contrastFollowsBrightness {
@@ -137,6 +138,9 @@ struct ModesTab: View {
                 Stepper(value: $state.settings.syncPollSeconds, in: 0.2 ... 5, step: 0.1) {
                     Text("Check every \(state.settings.syncPollSeconds, specifier: "%.1f") s")
                 }
+                Toggle("Monitors ignore auto-brightness", isOn: $state.settings.syncIgnoresAutoBrightness)
+                Text("When macOS \"Automatically adjust brightness\" is on, the light sensor changes the built-in display. With this on, monitors only follow the changes you make with Umbra's sliders or the brightness keys.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Location") {
                 HStack {
@@ -175,7 +179,7 @@ struct ModesTab: View {
     private var help: String {
         switch state.settings.mode {
         case .manual: return "Nothing changes on its own."
-        case .sync: return "External monitors follow the built-in display, which follows the Mac's light sensor."
+        case .sync: return "External monitors follow the built-in display. If macOS auto-brightness is on, that display follows the Mac's light sensor, so your monitors do too."
         case .location: return "Brightness follows the height of the sun where you are."
         case .clock: return "Brightness and contrast follow the schedule below."
         case .sensor: return "Brightness follows an external light sensor on your network."

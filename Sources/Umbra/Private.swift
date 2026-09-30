@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 import IOKit
@@ -54,6 +55,27 @@ enum Private {
 
     static func canChangeBrightness(_ id: CGDirectDisplayID) -> Bool {
         dsCanChange?(id) ?? false
+    }
+
+    // MARK: CoreBrightness (macOS auto-brightness)
+
+    private static let brightnessClient: NSObject? = {
+        dlopen("/System/Library/PrivateFrameworks/CoreBrightness.framework/CoreBrightness", RTLD_LAZY)
+        return (NSClassFromString("BrightnessSystemClient") as? NSObject.Type)?.init()
+    }()
+
+    /// True when macOS "Automatically adjust brightness" is on for the built-in display. Nil when macOS doesn't say.
+    static func autoBrightnessEnabled() -> Bool? {
+        let sel = NSSelectorFromString("copyPropertyForKey:")
+        guard let c = brightnessClient, c.responds(to: sel),
+              let v = c.perform(sel, with: "CBAutoBrightnessEnabled")?.takeRetainedValue() as? NSNumber else { return nil }
+        return v.boolValue
+    }
+
+    static func openDisplaySettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Displays-Settings.extension") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     // MARK: SkyLight (display enable / disable for BlackOut)

@@ -214,6 +214,8 @@ struct AppSettings: Codable, Equatable {
     var blackOutMethod: BlackOutMethod = .disconnect
     var autoBlackOut = false
     var syncPollSeconds: Double = 0.5
+    /// Sync skips changes that macOS auto-brightness makes to the built-in display. Changes the user makes in Umbra still sync.
+    var syncIgnoresAutoBrightness = false
     var faceLightBrightness: Double = 100
     var faceLightWarmth: Double = 0.6
     var presets: [Preset] = []
