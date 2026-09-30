@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.5
 
 - Sync mode: if macOS "Automatically adjust brightness" is on, the menu and Settings > Modes now say so. That setting lets the light sensor change the built-in display, and Sync copies the change to every monitor. The notice has a button that opens Displays settings.
 - Settings > Modes > Sync > "Monitors ignore auto-brightness" (also a button in the notice): monitors stop following the light sensor's changes to the built-in display. Changes you make with Umbra's sliders or the brightness keys still sync. Changes from Control Center don't sync while this is on, because Umbra can't tell them apart from the sensor's.
